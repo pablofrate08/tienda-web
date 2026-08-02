@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import urllib.parse
 import os
 
 # Configuración de la página
@@ -22,18 +23,18 @@ def cargar_datos():
 try:
     df = cargar_datos()
 except Exception as e:
-    st.error(f"Error al cargar el Excel: {e}. Recordá subir el archivo 'actualizacionesll.xlsx' a GitHub.")
+    st.error(f"Error al cargar el Excel: {e}")
     st.stop()
 
-# Inicializar carrito en la sesión
+# Inicializar carrito
 if 'carrito' not in st.session_state:
     st.session_state.carrito = []
 
 # Título Principal
 st.title("🛒 Tienda Virtual Lkcfrate")
-st.caption(f"Catálogo activo con {len(df)} artículos disponibles")
+st.caption(f"Catálogo activo con **{len(df)}** artículos disponibles")
 
-# Diseño en 2 columnas: Izquierda (Buscador/Productos) - Derecha (Carrito/Checkout)
+# Diseño en 2 columnas
 col_tienda, col_carrito = st.columns([2, 1])
 
 with col_tienda:
@@ -41,17 +42,21 @@ with col_tienda:
     busqueda = st.text_input("Ingresá código o nombre (ej: 25247, PA, tempera):", "").upper().strip()
 
     if busqueda:
-        # Filtrar entre los 864 productos
         resultados = df[
             df['COD_ARTICU'].str.upper().str.contains(busqueda) | 
             df['DESCRIPCIO'].str.upper().str.contains(busqueda)
         ]
     else:
-        resultados = df.head(20) # Muestra los primeros 20 si no busca nada
+        # Mostramos 20 por defecto, pero si marcás la casilla abajo muestra TODOS
+        ver_todos = st.checkbox("Mostrar los 864 productos a la vez (puede ralentizar un poco la lista)")
+        if ver_todos:
+            resultados = df
+        else:
+            resultados = df.head(20)
 
     st.write(f"Mostrando **{len(resultados)}** resultados:")
 
-    # Mostrar productos en tarjetas interactivas
+    # Tarjetas de productos
     for idx, row in resultados.iterrows():
         with st.container(border=True):
             c1, c2, c3 = st.columns([3, 1, 1])
@@ -74,9 +79,12 @@ with col_carrito:
         st.info("El carrito está vacío.")
     else:
         total_bruto = 0
+        resumen_texto = "Hola! Quisiera realizar el siguiente pedido:\n\n"
+        
         for item in st.session_state.carrito:
             st.write(f"• **{item['cantidad']}x** {item['nombre']} — **${item['subtotal']:,.2f}**")
             total_bruto += item['subtotal']
+            resumen_texto += f"- {item['cantidad']}x {item['nombre']} (${item['subtotal']:,.2f})\n"
         
         st.divider()
         st.markdown(f"#### Subtotal: **${total_bruto:,.2f}**")
@@ -98,7 +106,15 @@ with col_carrito:
         st.write(f"IVA (19%): **+${iva:,.2f}**")
         st.markdown(f"### **Total Final: ${total_final:,.2f}**")
 
-        if st.button("Finalizar Compra 🎉", type="primary"):
-            st.balloons()
-            st.success("¡Compra realizada con éxito! Gracias por elegirnos.")
-            st.session_state.carrito = []
+        resumen_texto += f"\n*Total Final:* ${total_final:,.2f}\n*Método de pago:* {metodo}"
+
+        # Botón dinámico según el método de pago elegido
+        if metodo == "Mercado Pago":
+            # Cambiá este link por tu Link de Pago o Alias de Mercado Pago
+            link_mp = "https://link.mercadopago.com.ar/pablofratenga" 
+            st.link_button("Pagar con Mercado Pago 💳", link_mp, type="primary")
+        else:
+            # Opción para enviar el pedido al WhatsApp del negocio
+            telefono_ws = "549343XXXXXXX" # Reemplazá con tu número con código de país
+            url_whatsapp = f"https://wa.me/{telefono_ws}?text={urllib.parse.quote(resumen_texto)}"
+            st.link_button("Finalizar Pedido por WhatsApp 📲", url_whatsapp, type="primary")
