@@ -85,14 +85,6 @@ st.markdown(
             margin-top: 8px;
         }
 
-        .product-image-box {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 14px;
-            padding: 8px;
-            min-height: 210px;
-        }
-
         .source-note {
             color: #64748b;
             font-size: .72rem;
@@ -255,6 +247,22 @@ def crear_imagen_respaldo(nombre, codigo):
     buffer = BytesIO()
     imagen.save(buffer, format="PNG")
     return buffer.getvalue()
+
+
+# =========================================================
+# PRECIOS
+# =========================================================
+
+def precio_valido(valor):
+    """Indica si el precio puede usarse para una operación de compra."""
+    return pd.notna(valor) and isinstance(valor, (int, float)) and not pd.isna(valor)
+
+
+def texto_precio(valor):
+    """Muestra el precio sin romper si el Excel trae un valor vacío."""
+    if not precio_valido(valor):
+        return "Consultar precio"
+    return f"${float(valor):,.2f}"
 
 
 # =========================================================
@@ -551,13 +559,14 @@ def cargar_datos():
     else:
         salida["COD_BARRA"] = ""
 
-    # Quitamos filas que no tengan nombre o precio válido.
-    salida = salida[
-        (salida["DESCRIPCIO"].str.strip() != "")
-        & salida["PRECIO"].notna()
-    ].copy()
+    # IMPORTANTE:
+    # No eliminamos filas por tener nombre o precio vacío.
+    # De esta manera el catálogo conserva TODAS las filas del Excel.
+    # Un precio vacío se mostrará como "Consultar precio".
+    salida["PRECIO"] = pd.to_numeric(salida["PRECIO"], errors="coerce").round(2)
 
-    salida["PRECIO"] = salida["PRECIO"].round(2)
+    salida["DESCRIPCIO"] = salida["DESCRIPCIO"].replace("", "Producto sin descripción")
+    salida["COD_ARTICU"] = salida["COD_ARTICU"].replace("", "-")
 
     # Identificador estable para los widgets.
     salida = salida.reset_index(drop=True)
@@ -590,6 +599,10 @@ def agregar_al_carrito(row, cantidad):
     """Agrega o acumula un producto en el carrito."""
     codigo = str(row["COD_ARTICU"])
     nombre = str(row["DESCRIPCIO"])
+
+    if not precio_valido(row["PRECIO"]):
+        return False
+
     precio = float(row["PRECIO"])
 
     # Si ya existe, acumulamos cantidad.
@@ -608,6 +621,8 @@ def agregar_al_carrito(row, cantidad):
             "subtotal": precio * int(cantidad),
         }
     )
+
+    return True
 
 
 def quitar_producto(indice):
@@ -639,6 +654,7 @@ st.markdown(
 st.caption(
     f"Catálogo activo: **{len(df):,} artículos**"
     .replace(",", ".")
+    + " · Se conservan todas las filas cargadas desde el Excel."
 )
 
 
@@ -756,10 +772,14 @@ elif orden == "Nombre Z → A":
     resultados = resultados.sort_values("DESCRIPCIO", ascending=False)
 
 elif orden == "Precio menor → mayor":
-    resultados = resultados.sort_values("PRECIO", ascending=True)
+    resultados = resultados.sort_values(
+        "PRECIO", ascending=True, na_position="last"
+    )
 
 elif orden == "Precio mayor → menor":
-    resultados = resultados.sort_values("PRECIO", ascending=False)
+    resultados = resultados.sort_values(
+        "PRECIO", ascending=False, na_position="last"
+    )
 
 
 # =========================================================
@@ -892,21 +912,14 @@ else:
                 with st.container(border=True):
 
                     # IMAGEN
+                    # Mostramos UNA sola imagen directamente.
+                    # No usamos un <div> HTML separado porque Streamlit
+                    # renderiza st.image como un bloque independiente.
                     imagen, es_real = obtener_visual_producto(row)
-
-                    st.markdown(
-                        "<div class='product-image-box'>",
-                        unsafe_allow_html=True,
-                    )
 
                     st.image(
                         imagen,
                         width="stretch",
-                    )
-
-                    st.markdown(
-                        "</div>",
-                        unsafe_allow_html=True,
                     )
 
                     if es_real:
@@ -949,12 +962,12 @@ else:
                         )
 
                     # PRECIO
-                    precio = float(row["PRECIO"])
+                    precio = row["PRECIO"]
 
                     st.markdown(
                         f"""
                         <div class="product-price">
-                            ${precio:,.2f}
+                            {html.escape(texto_precio(precio))}
                         </div>
                         """,
                         unsafe_allow_html=True,
@@ -967,21 +980,28 @@ else:
                         value=1,
                         step=1,
                         key=f"qty_{row['ROW_ID']}",
+                        disabled=not precio_valido(precio),
                     )
+
+                    if not precio_valido(precio):
+                        st.warning(
+                            "Este artículo no tiene un precio válido en el Excel."
+                        )
 
                     if st.button(
                         "🛒 Agregar al carrito",
                         key=f"add_{row['ROW_ID']}",
                         use_container_width=True,
+                        disabled=not precio_valido(precio),
                     ):
-                        agregar_al_carrito(row, cantidad)
+                        agregado = agregar_al_carrito(row, cantidad)
 
-                        st.toast(
-                            f"Agregado: {nombre}",
-                            icon="✅",
-                        )
-
-                        st.rerun()
+                        if agregado:
+                            st.toast(
+                                f"Agregado: {nombre}",
+                                icon="✅",
+                            )
+                            st.rerun()
 
     # -----------------------------------------------------
     # CARRITO
