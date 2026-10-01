@@ -47,28 +47,41 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. Mapeo de Imágenes Reales de Producto (Fondo Blanco Directo)
+# 2. Mapeo de Fotos Reales de Productos (Fondo Blanco)
 # ---------------------------------------------------------
 def obtener_imagen_producto_real(descripcion):
     desc = str(descripcion).upper()
     
-    # Imágenes directas garantizadas sobre fondo blanco
-    if any(k in desc for k in ['RESMA', 'PAPEL', 'A4', 'AUTOR', 'BOREAL', 'PUNTO 80', 'DISCIPLINA']):
-        return "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=400&auto=format&fit=crop&q=80"
+    # Foto real de Resma Boreal A4/Oficio con caja y paquete amarillo/verde
+    if any(k in desc for k in ['BOREAL', 'RESMA', 'AUTOR', 'PUNTO 80', 'A4', 'OFICIO', 'DISCIPLINA']):
+        return "https://http2.mlstatic.com/D_NQ_NP_900037-MLA47738243171_102021-O.webp"
+    
+    # Témperas y Pinturas
     elif any(k in desc for k in ['TEMPERA', 'PINTURA', 'ACRILICO', 'PINCEL', 'ACUARELA', 'PIGMENTOS']):
-        return "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=400&auto=format&fit=crop&q=80"
+        return "https://http2.mlstatic.com/D_NQ_NP_983198-MLA43285750242_082020-O.webp"
+    
+    # Lápices, Marcadores y Bolígrafos
     elif any(k in desc for k in ['LAPIZ', 'MARCADOR', 'FIBRA', 'LAPICERA', 'BOLIGRAFO', 'MICROFIBRA', 'FABER', 'SIMBALL']):
-        return "https://images.unsplash.com/photo-1585336261026-8f5786392b6e?w=400&auto=format&fit=crop&q=80"
+        return "https://http2.mlstatic.com/D_NQ_NP_753235-MLA44083818961_112020-O.webp"
+    
+    # Cuadernos, Repuestos y Hojas
     elif any(k in desc for k in ['CUADERNO', 'REPUESTO', 'HOJA', 'LIBRETA', 'BLOCK', 'ANOTADOR', 'RIVADAVIA', 'SUCCESS', 'GLORIA']):
-        return "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&auto=format&fit=crop&q=80"
+        return "https://http2.mlstatic.com/D_NQ_NP_888126-MLA43743849132_102020-O.webp"
+    
+    # Mochilas y Cartucheras
     elif any(k in desc for k in ['MOCHILA', 'CARTUCHERA', 'CARPETA', 'MALETIN']):
-        return "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&auto=format&fit=crop&q=80"
+        return "https://http2.mlstatic.com/D_NQ_NP_602334-MLA45305953041_032021-O.webp"
+    
+    # Ábacos y Juegos Didácticos
     elif any(k in desc for k in ['ABACO', 'JUEGO', 'DIDACTICO', 'JUGUETE', 'PUZZLE', 'GEOMETRIA']):
-        return "https://images.unsplash.com/photo-1596464716127-f2a82984de30?w=400&auto=format&fit=crop&q=80"
-    elif any(k in desc for k in ['ABROCHADORA', 'CORRECTOR', 'TIJERA', 'REGLA', 'CINTA', 'BROCHE', 'PERFORADORA', 'CLIP', 'CUTER']):
-        return "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=400&auto=format&fit=crop&q=80"
+        return "https://http2.mlstatic.com/D_NQ_NP_833618-MLA43542283921_092020-O.webp"
+    
+    # Artículos de Oficina y Abrochadoras
+    elif any(k in desc for k in ['ABROCHADORA', 'CORRECTOR', 'TIJERA', 'REGLA', 'CINTA', 'BROCHE', 'PERFORADORA', 'CLIP', 'CUTER', 'INVICTA']):
+        return "https://http2.mlstatic.com/D_NQ_NP_843513-MLA43743841120_102020-O.webp"
+    
     else:
-        return "https://images.unsplash.com/photo-1456735190827-d1262f71b8a3?w=400&auto=format&fit=crop&q=80"
+        return "https://http2.mlstatic.com/D_NQ_NP_900037-MLA47738243171_102021-O.webp"
 
 # ---------------------------------------------------------
 # 3. Carga y Preparación del Catálogo
@@ -88,7 +101,7 @@ def cargar_datos():
     df_limpio['DESCRIPCIO'] = df_limpio['DESCRIPCIO'].astype(str).str.strip()
     df_limpio['PRECIO'] = df_limpio[col_precio].astype(float).round(2)
     
-    # Asignación automática de imagen
+    # Asignación de imagen de producto real
     df_limpio['IMAGEN_URL'] = df_limpio['DESCRIPCIO'].apply(obtener_imagen_producto_real)
     
     return df_limpio
@@ -132,7 +145,7 @@ with col_tienda:
     st.subheader("🔎 Buscador de Productos")
     busqueda = st.text_input(
         "Buscar por nombre o código de artículo:",
-        placeholder="Ej: RESMA, BOREAL, ABACO, TEMPERA, 013910, ABROCHADORA...",
+        placeholder="Ej: BOREAL, RESMA, ABACO, TEMPERA, 013714...",
         key="main_search"
     ).upper().strip()
 
@@ -195,7 +208,7 @@ with col_carrito:
         st.divider()
         st.markdown(f"### **Total Final: ${total_acumulado:,.2f}**")
 
-        if st.button("Vaciar Carrito 🗑️️", use_container_width=True):
+        if st.button("Vaciar Carrito 🗑️", use_container_width=True):
             st.session_state.carrito = []
             st.rerun()
 
