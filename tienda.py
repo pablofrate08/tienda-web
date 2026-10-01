@@ -3,113 +3,208 @@ import pandas as pd
 import urllib.parse
 import os
 
-# Configuración de la página
-st.set_page_config(page_title="Tienda Lkcfrate", page_icon="🛒", layout="wide")
+# ---------------------------------------------------------
+# 1. Configuración de la página (Estilo Corporativo)
+# ---------------------------------------------------------
+st.set_page_config(
+    page_title="Tienda Virtual Lkcfrate | Mayorista & Minorista",
+    page_icon="📚",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
+# Estilos CSS personalizados para apariencia formal tipo e-commerce
+st.markdown("""
+    <style>
+    /* Estilo del Encabezado Principal */
+    .header-box {
+        background: linear-gradient(135deg, #0d3b66 0%, #001f3f 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .header-box h1 {
+        color: #ffffff;
+        font-weight: 700;
+        margin-bottom: 0.3rem;
+    }
+    .header-box p {
+        color: #e0e6ed;
+        font-size: 1.1rem;
+    }
+    
+    /* Estilo de la tarjeta de producto */
+    .product-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    /* Badge del código de artículo */
+    .code-badge {
+        background-color: #eef2f7;
+        color: #4a5568;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        font-family: monospace;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# ---------------------------------------------------------
+# 2. Carga y Preparación del Catálogo
+# ---------------------------------------------------------
 @st.cache_data
 def cargar_datos():
     archivo = 'derivadosll.xlsx'
+    if not os.path.exists(archivo):
+        archivo = 'actualizacionesll.xlsx'
     
     df = pd.read_excel(archivo)
-    # Seleccionamos las columnas de tu nuevo Excel
-    df_limpio = df[['COD_ARTICU', 'DESCRIPCIO', 'PRECIOFINAL']].dropna().copy()
+    
+    # Normalización de columnas de derivadosll.xlsx
+    col_precio = 'PRECIOFINAL' if 'PRECIOFINAL' in df.columns else 'FINAL'
+    
+    df_limpio = df[['COD_ARTICU', 'DESCRIPCIO', col_precio]].dropna().copy()
     df_limpio['COD_ARTICU'] = df_limpio['COD_ARTICU'].astype(str).str.strip()
     df_limpio['DESCRIPCIO'] = df_limpio['DESCRIPCIO'].astype(str).str.strip()
-    df_limpio['FINAL'] = df_limpio['PRECIOFINAL'].astype(float).round(2)
+    df_limpio['PRECIO'] = df_limpio[col_precio].astype(float).round(2)
+    
+    # Asignación de imagen de marcador por defecto (Librería / Oficina)
+    df_limpio['IMAGEN_URL'] = "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=400&q=80"
+    
     return df_limpio
 
-# Cargar catálogo
 try:
     df = cargar_datos()
 except Exception as e:
-    st.error(f"Error al cargar el Excel: {e}")
+    st.error(f"⚠️ Error al conectar con la base de datos de productos: {e}")
     st.stop()
 
-# Inicializar carrito
+# Inicialización del carrito
 if 'carrito' not in st.session_state:
     st.session_state.carrito = []
 
-# Título Principal
-st.title("🛒 Tienda Virtual Lkcfrate")
-st.caption(f"Catálogo activo con **{len(df)}** artículos disponibles")
+# ---------------------------------------------------------
+# 3. Encabezado / Banner Institucional
+# ---------------------------------------------------------
+st.markdown("""
+    <div class="header-box">
+        <h1>📚 TIENDA VIRTUAL LKCFRATE</h1>
+        <p>Distribución de Artículos de Librería, Comercial & Escolar</p>
+    </div>
+""", unsafe_allow_html=True)
 
-# Diseño en 2 columnas
-col_tienda, col_carrito = st.columns([2, 1])
+# ---------------------------------------------------------
+# 4. Barra Lateral de Navegación & Filtros
+# ---------------------------------------------------------
+with st.sidebar:
+    st.image("https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=400&q=80", use_column_width=True)
+    st.header("⚙️ Panel de Filtros")
+    
+    modo_vista = st.radio("Cantidad de productos en pantalla:", ["Mostrar 20 Destacados", "Ver Catálogo Completo"])
+    
+    st.divider()
+    st.markdown("### 📞 Atención al Cliente")
+    st.info("Atención de Lunes a Viernes de 8:00 a 17:00 hs.\n\nEnvíos a todo el país.")
+
+# ---------------------------------------------------------
+# 5. Cuerpo Principal: Búsqueda y Productos
+# ---------------------------------------------------------
+col_tienda, col_carrito = st.columns([2.2, 1])
 
 with col_tienda:
-    st.subheader("🔍 Buscar Productos")
-    busqueda = st.text_input("Ingresá código o nombre (ej: 013910, ABACO, tempera):", "").upper().strip()
+    st.subheader("🔎 Buscador de Productos")
+    busqueda = st.text_input(
+        "Buscar por nombre o código de artículo:",
+        placeholder="Ej: ABACO, TEMPERA, 013910, ABROCHADORA...",
+        key="main_search"
+    ).upper().strip()
 
+    # Filtrado en tiempo real sobre los +20.000 artículos
     if busqueda:
         resultados = df[
             df['COD_ARTICU'].str.upper().str.contains(busqueda) | 
             df['DESCRIPCIO'].str.upper().str.contains(busqueda)
         ]
     else:
-        ver_todos = st.checkbox("Mostrar todo el catálogo a la vez")
-        if ver_todos:
+        if modo_vista == "Ver Catálogo Completo":
             resultados = df
         else:
             resultados = df.head(20)
 
-    st.write(f"Mostrando **{len(resultados)}** resultados:")
+    st.caption(f"Mostrando **{len(resultados)}** artículos encontrados de **{len(df):,}** disponibles.")
+    st.divider()
 
-    # Tarjetas de productos
+    # Grid de tarjetas de productos profesionales
     for idx, row in resultados.iterrows():
         with st.container(border=True):
-            c1, c2, c3 = st.columns([3, 1, 1])
-            c1.markdown(f"**{row['DESCRIPCIO']}**  \n`Cód: {row['COD_ARTICU']}`")
-            c2.markdown(f"### ${row['FINAL']:,.2f}")
-            cant = c3.number_input("Cant:", min_value=1, value=1, key=f"cant_{idx}")
-            if c3.button("Agregar ➕", key=f"btn_{idx}"):
-                st.session_state.carrito.append({
-                    "nombre": row['DESCRIPCIO'],
-                    "precio": row['FINAL'],
-                    "cantidad": cant,
-                    "subtotal": row['FINAL'] * cant
-                })
-                st.toast(f"¡Agregado: {row['DESCRIPCIO']}!", icon="✅")
+            img_col, text_col, action_col = st.columns([1.2, 2.5, 1.3])
+            
+            with img_col:
+                # Imagen de muestra formal del producto
+                st.image(row['IMAGEN_URL'], use_column_width=True)
+                
+            with text_col:
+                st.markdown(f"### {row['DESCRIPCIO']}")
+                st.markdown(f"Código: <span class='code-badge'>{row['COD_ARTICU']}</span>", unsafe_allow_html=True)
+                st.markdown(f"**Precio Unitario:** `${row['PRECIO']:,.2f}`")
+                
+            with action_col:
+                cant = st.number_input("Cantidad:", min_value=1, value=1, key=f"cant_{idx}")
+                if st.button("🛒 Agregar", key=f"btn_{idx}", type="secondary", use_container_width=True):
+                    st.session_state.carrito.append({
+                        "codigo": row['COD_ARTICU'],
+                        "nombre": row['DESCRIPCIO'],
+                        "precio": row['PRECIO'],
+                        "cantidad": cant,
+                        "subtotal": row['PRECIO'] * cant
+                    })
+                    st.toast(f"Agregado al carrito: {row['DESCRIPCIO']}", icon="✅")
 
+# ---------------------------------------------------------
+# 6. Columna Derecha: Carrito y Pedido Formal
+# ---------------------------------------------------------
 with col_carrito:
-    st.subheader("🛍️ Tu Carrito de Compras")
+    st.subheader("🛍️ Resumen de Compra")
 
     if not st.session_state.carrito:
-        st.info("El carrito está vacío.")
+        st.info("El carrito de compras está vacío.")
     else:
-        total_bruto = 0
-        resumen_texto = "Hola! Quisiera realizar el siguiente pedido:\n\n"
+        total_acumulado = 0
+        resumen_texto = "📋 *NUEVO PEDIDO DE COMPRA - TIENDA LKCFRATE*\n\n"
         
         for item in st.session_state.carrito:
-            st.write(f"• **{item['cantidad']}x** {item['nombre']} — **${item['subtotal']:,.2f}**")
-            total_bruto += item['subtotal']
-            resumen_texto += f"- {item['cantidad']}x {item['nombre']} (${item['subtotal']:,.2f})\n"
+            st.markdown(f"• **{item['cantidad']}x** {item['nombre']}")
+            st.caption(f"Cód: {item['codigo']} | Subtotal: ${item['subtotal']:,.2f}")
+            total_acumulado += item['subtotal']
+            resumen_texto += f"- [{item['codigo']}] {item['cantidad']}x {item['nombre']} = ${item['subtotal']:,.2f}\n"
         
         st.divider()
-        st.markdown(f"#### Subtotal: **${total_bruto:,.2f}**")
+        st.markdown(f"### **Total Final: ${total_acumulado:,.2f}**")
 
-        if st.button("Vaciar Carrito 🗑️"):
+        if st.button("Vaciar Carrito 🗑️", use_container_width=True):
             st.session_state.carrito = []
             st.rerun()
 
         st.divider()
-        st.subheader("💳 Métodos de Pago")
-        metodo = st.radio("Seleccioná la forma de pago:", ["Efectivo (5% Desc.)", "Tarjeta de Crédito", "Mercado Pago"])
+        st.subheader("💳 Finalización del Pedido")
+        metodo = st.radio("Forma de Pago / Retiro:", ["Efectivo / Transferencia", "Mercado Pago"])
 
-        descuento = total_bruto * 0.05 if "Efectivo" in metodo else 0
-        subtotal_desc = total_bruto - descuento
-        iva = subtotal_desc * 0.19
-        total_final = subtotal_desc + iva
-
-        st.write(f"Descuento: **-${descuento:,.2f}**")
-        st.write(f"IVA (19%): **+${iva:,.2f}**")
-        st.markdown(f"### **Total Final: ${total_final:,.2f}**")
-
-        resumen_texto += f"\n*Total Final:* ${total_final:,.2f}\n*Método de pago:* {metodo}"
+        resumen_texto += f"\n*TOTAL COMPRA:* ${total_acumulado:,.2f}\n*FORMA DE PAGO:* {metodo}"
 
         if metodo == "Mercado Pago":
             link_mp = "https://link.mercadopago.com.ar/TULINKAQUI" 
-            st.link_button("Pagar con Mercado Pago 💳", link_mp, type="primary")
+            st.link_button("Pagar con Mercado Pago 💳", link_mp, type="primary", use_container_width=True)
         else:
-            telefono_ws = "549343XXXXXXX"
+            telefono_ws = "549343XXXXXXX" # Reemplazar con tu número de WhatsApp
             url_whatsapp = f"https://wa.me/{telefono_ws}?text={urllib.parse.quote(resumen_texto)}"
-            st.link_button("Finalizar Pedido por WhatsApp 📲", url_whatsapp, type="primary")
+            st.link_button("Enviar Orden por WhatsApp 📲", url_whatsapp, type="primary", use_container_width=True)
