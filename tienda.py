@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import urllib.parse
 import os
+import html
 
 # ---------------------------------------------------------
 # 1. Configuración de la página (Estilo Corporativo)
@@ -43,30 +44,122 @@ st.markdown("""
         font-weight: 600;
         font-family: monospace;
     }
+    .product-card-img {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #f8fafc;
+        border-radius: 8px;
+        padding: 8px;
+        border: 1px solid #e2e8f0;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. Generador de Imagen de Producto Real Infallible (Base64)
+# 2. Generador Específico de Imágenes según Producto
 # ---------------------------------------------------------
-def obtener_imagen_base64_producto(descripcion):
+def generar_imagen_especifica_svg(descripcion):
     desc = str(descripcion).upper()
     
-    # Resma Boreal / Papeles (Ilustración limpia de Resma sobre fondo blanco en Base64)
-    if any(k in desc for k in ['RESMA', 'PAPEL', 'BOREAL', 'AUTOR', 'A4', 'OFICIO', 'PUNTO 80']):
-        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 250'><rect width='300' height='250' fill='%23f8fafc' rx='8'/><ellipse cx='150' cy='210' rx='90' ry='12' fill='%23e2e8f0'/><rect x='60' y='50' width='120' height='140' fill='%23ffffff' stroke='%23cbd5e1' stroke-width='2' rx='4'/><rect x='60' y='50' width='120' height='35' fill='%2315803d'/><text x='120' y='73' fill='%23ffffff' font-family='sans-serif' font-weight='bold' font-size='14' text-anchor='middle'>BOREAL A4</text><g transform='rotate(-5 190 120)'><rect x='130' y='50' width='110' height='145' fill='%23eab308' stroke='%23ca8a04' stroke-width='2' rx='4'/><rect x='130' y='50' width='110' height='35' fill='%23166534'/><text x='185' y='73' fill='%23ffffff' font-family='sans-serif' font-weight='bold' font-size='13' text-anchor='middle'>70g / 80g</text><text x='185' y='140' fill='%230f172a' font-family='sans-serif' font-weight='bold' font-size='16' text-anchor='middle'>Boreal</text></g></svg>"
+    # Detección de Gramaje
+    gramaje = "80g"
+    if "70G" in desc or "70 G" in desc:
+        gramaje = "70g"
+    elif "75G" in desc or "75 G" in desc:
+        gramaje = "75g"
+    elif "90G" in desc or "90 G" in desc:
+        gramaje = "90g"
+        
+    # Detección de Tamaño
+    tamano = "A4"
+    if "OFICIO" in desc or "OF" in desc or "22X34" in desc:
+        tamano = "OFICIO"
+    elif "CARTA" in desc or "LETTER" in desc:
+        tamano = "CARTA"
+    elif "A3" in desc:
+        tamano = "A3"
 
-    # Lápices y Librería
-    elif any(k in desc for k in ['LAPIZ', 'MARCADOR', 'FIBRA', 'LAPICERA', 'BOLIGRAFO', 'MICROFIBRA']):
-        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 250'><rect width='300' height='250' fill='%23f8fafc' rx='8'/><polygon points='100,190 115,190 115,60 100,60' fill='%23f59e0b'/><polygon points='100,60 115,60 107,40' fill='%23fde047'/><polygon points='105,45 110,45 107,40' fill='%231e293b'/><rect x='150' y='60' width='25' height='130' fill='%232563eb' rx='4'/></svg>"
+    # --- CATEGORÍA 1: RESMAS ---
+    if 'RESMA' in desc or 'PAPEL OBRA' in desc:
+        # Marca: BOREAL (Verde / Amarillo)
+        if 'BOREAL' in desc:
+            bg_pack = "%23eab308"  # Amarillo
+            bg_header = "%23166534"  # Verde Boreal
+            brand_name = "Boreal"
+        # Marca: AUTOR (Azul / Blanco)
+        elif 'AUTOR' in desc:
+            bg_pack = "%232563eb"  # Azul Autor
+            bg_header = "%231e3a8a"  # Azul Oscuro
+            brand_name = "Autor"
+        # Marca: LEDESMA / NAT / PUNAX (Ecológico / Crema / Naranja)
+        elif 'LEDESMA' in desc or 'NAT' in desc or 'PUNAX' in desc:
+            bg_pack = "%23d97706"  # Tono Kraft/Naranja
+            bg_header = "%2378350f"  # Marrón
+            brand_name = "Ledesma"
+        # Marca Generica de Resma
+        else:
+            bg_pack = "%230284c7"  # Celeste
+            bg_header = "%230369a1"
+            brand_name = "Resma"
 
-    # Cuadernos
+        svg_str = f"""<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 240' width='100%' height='180'>
+            <rect width='300' height='240' fill='%23f1f5f9' rx='8'/>
+            <ellipse cx='150' cy='210' rx='95' ry='12' fill='%23cbd5e1'/>
+            <rect x='45' y='40' width='100' height='150' fill='%23ffffff' stroke='%2394a3b8' stroke-width='2' rx='3'/>
+            <rect x='45' y='40' width='100' height='35' fill='{bg_header}' rx='2'/>
+            <text x='95' y='62' fill='%23ffffff' font-family='sans-serif' font-weight='bold' font-size='13' text-anchor='middle'>{tamano}</text>
+            <g transform='rotate(-4 180 120)'>
+                <rect x='125' y='35' width='120' height='160' fill='{bg_pack}' stroke='%23475569' stroke-width='2' rx='4'/>
+                <rect x='125' y='35' width='120' height='40' fill='{bg_header}'/>
+                <text x='185' y='60' fill='%23ffffff' font-family='sans-serif' font-weight='bold' font-size='15' text-anchor='middle'>{tamano} {gramaje}</text>
+                <rect x='140' y='90' width='90' height='55' fill='%23ffffff' rx='3'/>
+                <text x='185' y='122' fill='%230f172a' font-family='sans-serif' font-weight='bold' font-size='16' text-anchor='middle'>{brand_name}</text>
+            </g>
+        </svg>"""
+        return f"data:image/svg+xml;utf8,{svg_str}"
+
+    # --- CATEGORÍA 2: ESCRITURA (Lápices, Bolígrafos, Marcadores) ---
+    elif any(k in desc for k in ['LAPIZ', 'MARCADOR', 'FIBRA', 'LAPICERA', 'BOLIGRAFO', 'MICROFIBRA', 'ROLLER']):
+        svg_str = """<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 240' width='100%' height='180'>
+            <rect width='300' height='240' fill='%23f1f5f9' rx='8'/>
+            <ellipse cx='150' cy='205' rx='75' ry='10' fill='%23cbd5e1'/>
+            <polygon points='85,180 100,180 100,50 85,50' fill='%23f59e0b'/>
+            <polygon points='85,50 100,50 92,30' fill='%23fde047'/>
+            <polygon points='90,38 95,38 92,30' fill='%231e293b'/>
+            <rect x='120' y='45' width='22' height='135' fill='%232563eb' rx='3'/>
+            <rect x='120' y='25' width='22' height='25' fill='%231e40af' rx='2'/>
+            <rect x='155' y='60' width='26' height='120' fill='%23dc2626' rx='4'/>
+            <rect x='155' y='40' width='26' height='25' fill='%23991b1b' rx='2'/>
+        </svg>"""
+        return f"data:image/svg+xml;utf8,{svg_str}"
+
+    # --- CATEGORÍA 3: CUADERNOS Y REPUESTOS ---
     elif any(k in desc for k in ['CUADERNO', 'REPUESTO', 'HOJA', 'LIBRETA', 'BLOCK', 'ANOTADOR']):
-        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 250'><rect width='300' height='250' fill='%23f8fafc' rx='8'/><rect x='80' y='40' width='140' height='170' fill='%231e3a8a' rx='6'/><rect x='95' y='40' width='125' height='170' fill='%233b82f6' rx='2'/><text x='157' y='125' fill='%23ffffff' font-family='sans-serif' font-weight='bold' font-size='16' text-anchor='middle'>CUADERNO</text></svg>"
+        svg_str = """<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 240' width='100%' height='180'>
+            <rect width='300' height='240' fill='%23f1f5f9' rx='8'/>
+            <ellipse cx='150' cy='210' rx='85' ry='10' fill='%23cbd5e1'/>
+            <rect x='75' y='35' width='150' height='170' fill='%231e3a8a' rx='6'/>
+            <rect x='92' y='35' width='133' height='170' fill='%232563eb' rx='2'/>
+            <circle cx='84' cy='55' r='5' fill='%2394a3b8'/><circle cx='84' cy='85' r='5' fill='%2394a3b8'/>
+            <circle cx='84' cy='115' r='5' fill='%2394a3b8'/><circle cx='84' cy='145' r='5' fill='%2394a3b8'/>
+            <circle cx='84' cy='175' r='5' fill='%2394a3b8'/>
+            <rect x='110' y='75' width='95' height='14' fill='%23ffffff' rx='2'/>
+            <text x='157' y='125' fill='%23ffffff' font-family='sans-serif' font-weight='bold' font-size='15' text-anchor='middle'>CUADERNO</text>
+        </svg>"""
+        return f"data:image/svg+xml;utf8,{svg_str}"
 
-    # Imagen Genérica
+    # --- CATEGORÍA 4: ARTÍCULOS GENERALES DE LIBRERÍA ---
     else:
-        return "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 250'><rect width='300' height='250' fill='%23f8fafc' rx='8'/><text x='150' y='130' fill='%2364748b' font-family='sans-serif' font-weight='bold' font-size='14' text-anchor='middle'>ARTICULO DE LIBRERIA</text></svg>"
+        svg_str = """<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 240' width='100%' height='180'>
+            <rect width='300' height='240' fill='%23f1f5f9' rx='8'/>
+            <ellipse cx='150' cy='205' rx='70' ry='10' fill='%23cbd5e1'/>
+            <path d='M 75 175 L 225 175 L 215 155 L 85 155 Z' fill='%23475569'/>
+            <path d='M 85 150 L 215 150 C 215 115 165 105 125 115 L 85 150 Z' fill='%230f172a'/>
+            <rect x='80' y='170' width='145' height='10' fill='%230f172a' rx='2'/>
+            <text x='150' y='80' fill='%23334155' font-family='sans-serif' font-weight='bold' font-size='13' text-anchor='middle'>LIBRERIA / OFICINA</text>
+        </svg>"""
+        return f"data:image/svg+xml;utf8,{svg_str}"
 
 # ---------------------------------------------------------
 # 3. Carga y Preparación del Catálogo
@@ -86,7 +179,8 @@ def cargar_datos():
     df_limpio['DESCRIPCIO'] = df_limpio['DESCRIPCIO'].astype(str).str.strip()
     df_limpio['PRECIO'] = df_limpio[col_precio].astype(float).round(2)
     
-    df_limpio['IMAGEN_URL'] = df_limpio['DESCRIPCIO'].apply(obtener_imagen_base64_producto)
+    # Generación de imagen específica
+    df_limpio['IMAGEN_DATA'] = df_limpio['DESCRIPCIO'].apply(generar_imagen_especifica_svg)
     
     return df_limpio
 
@@ -129,7 +223,7 @@ with col_tienda:
     st.subheader("🔎 Buscador de Productos")
     busqueda = st.text_input(
         "Buscar por nombre o código de artículo:",
-        placeholder="Ej: BOREAL, RESMA, ABACO, TEMPERA, 013714...",
+        placeholder="Ej: BOREAL, AUTOR, LEDESMA, RESMA, ABACO, TEMPERA...",
         key="main_search"
     ).upper().strip()
 
@@ -149,11 +243,15 @@ with col_tienda:
 
     for idx, row in resultados.iterrows():
         with st.container(border=True):
-            img_col, text_col, action_col = st.columns([1.2, 2.5, 1.3])
+            img_col, text_col, action_col = st.columns([1.3, 2.4, 1.3])
             
             with img_col:
-                # Usa directamente st.image sin usar marcas HTML crudas
-                st.image(row['IMAGEN_URL'], use_container_width=True)
+                # Renderizado limpio a través de un contenedor HTML optimizado
+                img_src = html.escape(row['IMAGEN_DATA'])
+                st.markdown(
+                    f"<div class='product-card-img'><img src='{img_src}' style='max-width:100%; height:auto;'/></div>",
+                    unsafe_allow_html=True
+                )
                 
             with text_col:
                 st.markdown(f"### {row['DESCRIPCIO']}")
