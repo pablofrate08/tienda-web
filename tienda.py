@@ -4,7 +4,6 @@ import requests
 import json
 import urllib.parse
 import os
-import io
 import math
 from PIL import Image, ImageDraw
 
@@ -62,37 +61,32 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. Generador PNG de Resguardo (Seguro en Memoria)
+# 2. Generador de Imagen PIL Nativa (Garantiza Visualización)
 # ---------------------------------------------------------
-def generar_imagen_respaldo_png(descripcion, codigo):
-    try:
-        width, height = 400, 300
-        image = Image.new('RGB', (width, height), color='#f8fafc')
-        draw = ImageDraw.Draw(image)
+def generar_imagen_pil(descripcion, codigo):
+    width, height = 400, 300
+    image = Image.new('RGB', (width, height), color='#f1f5f9')
+    draw = ImageDraw.Draw(image)
+    
+    # Marcado de tarjeta prolija
+    draw.rectangle([(10, 10), (width-10, height-10)], outline='#cbd5e1', width=2)
+    draw.rectangle([(25, 25), (width-25, height-25)], fill='#ffffff', outline='#e2e8f0', width=1)
+    
+    d_text = str(descripcion).upper()
+    if len(d_text) > 26:
+        d_text = d_text[:24] + "..."
         
-        draw.rectangle([(8, 8), (width-8, height-8)], outline='#e2e8f0', width=2)
-        draw.rectangle([(20, 20), (width-20, height-20)], fill='#ffffff', outline='#cbd5e1', width=1)
-        
-        d_text = str(descripcion).upper()
-        if len(d_text) > 28:
-            d_text = d_text[:26] + "..."
-            
-        c_text = f"Cód: {codigo}"
-        
-        draw.text((200, 90), "📦 LKCFRATE LIBRERÍA", fill='#0284c7', anchor="ms")
-        draw.text((200, 135), d_text, fill='#0f172a', anchor="ms")
-        draw.text((200, 175), c_text, fill='#475569', anchor="ms")
-        draw.text((200, 215), "Imagen no disponible", fill='#94a3b8', anchor="ms")
-        
-        buf = io.BytesIO()
-        image.save(buf, format='PNG')
-        buf.seek(0)
-        return buf
-    except Exception:
-        return None
+    c_text = f"CÓD: {codigo}"
+    
+    draw.text((200, 85), "📚 LKCFRATE LIBRERÍA", fill='#0284c7', anchor="ms")
+    draw.text((200, 130), d_text, fill='#0f172a', anchor="ms")
+    draw.text((200, 170), c_text, fill='#475569', anchor="ms")
+    draw.text((200, 215), "IMAGEN DE CATÁLOGO", fill='#94a3b8', anchor="ms")
+    
+    return image
 
 # ---------------------------------------------------------
-# 3. Buscador de Imágenes Con Protección Anti-Colapso
+# 3. Búsqueda de Imagen con Manejo de Excepciones Cloud
 # ---------------------------------------------------------
 if 'imagenes_cache' not in st.session_state:
     st.session_state.imagenes_cache = {}
@@ -107,7 +101,13 @@ def buscar_imagen_real_producto(row):
     if cache_key in st.session_state.imagenes_cache:
         return st.session_state.imagenes_cache[cache_key]
 
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    # Si hay columna URL_IMAGEN con link directo en el Excel
+    if 'URL_IMAGEN' in row and pd.notna(row['URL_IMAGEN']) and str(row['URL_IMAGEN']).startswith('http'):
+        url_directa = str(row['URL_IMAGEN']).strip()
+        st.session_state.imagenes_cache[cache_key] = url_directa
+        return url_directa
+
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
     
     consultas = []
     if cod_barra and len(cod_barra) >= 8 and cod_barra.isdigit():
@@ -118,7 +118,7 @@ def buscar_imagen_real_producto(row):
     for q in consultas:
         try:
             url_api = f"https://api.mercadolibre.com/sites/MLA/search?q={urllib.parse.quote(q)}&limit=1"
-            resp = requests.get(url_api, headers=headers, timeout=1.5)
+            resp = requests.get(url_api, headers=headers, timeout=1.2)
             if resp.status_code == 200:
                 data = resp.json()
                 results = data.get('results', [])
@@ -144,15 +144,12 @@ def cargar_datos():
         archivo = 'actualizacionesll.xlsx'
         
     if not os.path.exists(archivo):
-        st.error(f"⚠️ No se encontró el archivo Excel (`derivadosll.xlsx`) en la carpeta del proyecto.")
+        st.error("⚠️ No se encontró el archivo Excel (`derivadosll.xlsx`) en el repositorio de GitHub.")
         st.stop()
         
     df = pd.read_excel(archivo)
-    
-    # Normalizar nombres de columnas a mayúsculas sin espacios
     df.columns = [str(c).strip().upper() for c in df.columns]
     
-    # Mapeo flexible de columnas
     col_codigo = next((c for c in ['COD_ARTICU', 'CODIGO', 'COD', 'ARTICULO'] if c in df.columns), None)
     col_desc = next((c for c in ['DESCRIPCIO', 'DESCRIPCION', 'NOMBRE', 'DETALLE'] if c in df.columns), None)
     col_precio = next((c for c in ['PRECIOFINAL', 'FINAL', 'PRECIO_FINAL', 'PRECIO'] if c in df.columns), None)
@@ -165,6 +162,9 @@ def cargar_datos():
     df_limpio['PRECIO'] = pd.to_numeric(df[col_precio], errors='coerce') if col_precio else None
     df_limpio['COD_BARRA'] = df[col_barra].astype(str).str.strip().replace('nan', '') if col_barra else ""
     
+    if 'URL_IMAGEN' in df.columns:
+        df_limpio['URL_IMAGEN'] = df['URL_IMAGEN']
+        
     return df_limpio
 
 try:
@@ -173,7 +173,6 @@ except Exception as e:
     st.error(f"⚠️ Error al procesar el Excel: {e}")
     st.stop()
 
-# Inicialización del carrito
 if 'carrito' not in st.session_state:
     st.session_state.carrito = []
 
@@ -193,15 +192,13 @@ st.markdown("""
 with st.sidebar:
     st.header("⚙️ Panel de Control")
     st.write(f"Total en Catálogo: **{len(df):,}** artículos")
-    
     PRODUCTOS_POR_PAGINA = 20
-    
     st.divider()
     st.markdown("### 📞 Atención al Cliente")
     st.info("Atención de Lunes a Viernes de 8:00 a 17:00 hs.\n\nEnvíos a todo el país.")
 
 # ---------------------------------------------------------
-# 7. Buscador y Listado
+# 7. Buscador y Catálogo
 # ---------------------------------------------------------
 col_tienda, col_carrito = st.columns([2.2, 1])
 
@@ -246,9 +243,8 @@ with col_tienda:
                 if img_url:
                     st.image(img_url, use_container_width=True)
                 else:
-                    png_fallback = generar_imagen_respaldo_png(row['DESCRIPCIO'], row['COD_ARTICU'])
-                    if png_fallback:
-                        st.image(png_fallback, use_container_width=True)
+                    pil_img = generar_imagen_pil(row['DESCRIPCIO'], row['COD_ARTICU'])
+                    st.image(pil_img, use_container_width=True)
                 
             with text_col:
                 st.markdown(f"### {row['DESCRIPCIO']}")
