@@ -47,29 +47,28 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. Mapeo de Imágenes Reales de Producto (Fondo Blanco)
+# 2. Mapeo de Imágenes Reales de Producto (Fondo Blanco Directo)
 # ---------------------------------------------------------
 def obtener_imagen_producto_real(descripcion):
     desc = str(descripcion).upper()
     
-    # Imágenes comerciales aisladas sobre fondo neutro/blanco
-    if any(k in desc for k in ['RESMA', 'PAPEL', 'A4', 'AUTOR', 'BOREAL', 'DISCIPLINA', 'PUNTO 80']):
-        return "https://m.media-amazon.com/images/I/61M6K-f3d3L._AC_SL1200_.jpg"
+    # Imágenes directas garantizadas sobre fondo blanco
+    if any(k in desc for k in ['RESMA', 'PAPEL', 'A4', 'AUTOR', 'BOREAL', 'PUNTO 80', 'DISCIPLINA']):
+        return "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=400&auto=format&fit=crop&q=80"
     elif any(k in desc for k in ['TEMPERA', 'PINTURA', 'ACRILICO', 'PINCEL', 'ACUARELA', 'PIGMENTOS']):
-        return "https://m.media-amazon.com/images/I/71Y+R4P+eRL._AC_SL1500_.jpg"
+        return "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=400&auto=format&fit=crop&q=80"
     elif any(k in desc for k in ['LAPIZ', 'MARCADOR', 'FIBRA', 'LAPICERA', 'BOLIGRAFO', 'MICROFIBRA', 'FABER', 'SIMBALL']):
-        return "https://m.media-amazon.com/images/I/719fH3zUa-L._AC_SL1500_.jpg"
+        return "https://images.unsplash.com/photo-1585336261026-8f5786392b6e?w=400&auto=format&fit=crop&q=80"
     elif any(k in desc for k in ['CUADERNO', 'REPUESTO', 'HOJA', 'LIBRETA', 'BLOCK', 'ANOTADOR', 'RIVADAVIA', 'SUCCESS', 'GLORIA']):
-        return "https://m.media-amazon.com/images/I/71a2+Rk3F-L._AC_SL1500_.jpg"
+        return "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&auto=format&fit=crop&q=80"
     elif any(k in desc for k in ['MOCHILA', 'CARTUCHERA', 'CARPETA', 'MALETIN']):
-        return "https://m.media-amazon.com/images/I/71c3V-0Jv4L._AC_SL1500_.jpg"
+        return "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&auto=format&fit=crop&q=80"
     elif any(k in desc for k in ['ABACO', 'JUEGO', 'DIDACTICO', 'JUGUETE', 'PUZZLE', 'GEOMETRIA']):
-        return "https://m.media-amazon.com/images/I/81xZ0J8yEIL._AC_SL1500_.jpg"
-    elif any(k in desc for k in ['ABROCHADORA', 'CORRECTOR', 'TIJERA', 'REGLA', 'CINTA', 'BROCHE', 'PERFORADORA', 'CLIP', 'CUTER', 'INVICTA']):
-        return "https://m.media-amazon.com/images/I/61NfXpG1x2L._AC_SL1200_.jpg"
+        return "https://images.unsplash.com/photo-1596464716127-f2a82984de30?w=400&auto=format&fit=crop&q=80"
+    elif any(k in desc for k in ['ABROCHADORA', 'CORRECTOR', 'TIJERA', 'REGLA', 'CINTA', 'BROCHE', 'PERFORADORA', 'CLIP', 'CUTER']):
+        return "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=400&auto=format&fit=crop&q=80"
     else:
-        # Producto genérico de librería comercial
-        return "https://m.media-amazon.com/images/I/61M6K-f3d3L._AC_SL1200_.jpg"
+        return "https://images.unsplash.com/photo-1456735190827-d1262f71b8a3?w=400&auto=format&fit=crop&q=80"
 
 # ---------------------------------------------------------
 # 3. Carga y Preparación del Catálogo
@@ -89,7 +88,7 @@ def cargar_datos():
     df_limpio['DESCRIPCIO'] = df_limpio['DESCRIPCIO'].astype(str).str.strip()
     df_limpio['PRECIO'] = df_limpio[col_precio].astype(float).round(2)
     
-    # Asignar imagen comercial sobre fondo blanco
+    # Asignación automática de imagen
     df_limpio['IMAGEN_URL'] = df_limpio['DESCRIPCIO'].apply(obtener_imagen_producto_real)
     
     return df_limpio
@@ -196,7 +195,7 @@ with col_carrito:
         st.divider()
         st.markdown(f"### **Total Final: ${total_acumulado:,.2f}**")
 
-        if st.button("Vaciar Carrito 🗑️", use_container_width=True):
+        if st.button("Vaciar Carrito 🗑️️", use_container_width=True):
             st.session_state.carrito = []
             st.rerun()
 
