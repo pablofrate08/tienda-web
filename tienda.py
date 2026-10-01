@@ -43,48 +43,99 @@ st.markdown("""
         font-weight: 600;
         font-family: monospace;
     }
+    .product-img-box {
+        background-color: #f8fafc;
+        border-radius: 8px;
+        padding: 10px;
+        text-align: center;
+        border: 1px solid #e2e8f0;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. Mapeo Extensivo de Imágenes Libres y Estables por Producto
+# 2. Generador de Imágenes Integradas Infalibles (SVG)
 # ---------------------------------------------------------
-def obtener_imagen_libreria(descripcion):
+def obtener_svg_producto(descripcion):
     desc = str(descripcion).upper()
     
-    # 1. Resmas, Papel y Cartulinas (Servidor abierto Wikimedia / CDN libre)
-    if any(k in desc for k in ['RESMA', 'PAPEL', 'A4', 'AUTOR', 'BOREAL', 'PUNTO 80', 'OFICIO', 'DISCIPLINA']):
-        return "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Paper_ream.jpg/800px-Paper_ream.jpg"
-    elif any(k in desc for k in ['CARTULINA', 'AFICHE', 'FOLIO', 'SOBRE', 'CARTON', 'PAPEL CREP']):
-        return "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=400&q=80"
-    
-    # 2. Escritura: Lápices, Marcadores, Bolígrafos, Microfribras
-    elif any(k in desc for k in ['LAPIZ', 'MARCADOR', 'FIBRA', 'LAPICERA', 'BOLIGRAFO', 'MICROFIBRA', 'FABER', 'SIMBALL', 'BIC']):
-        return "https://images.unsplash.com/photo-1585336261026-8f5786392b6e?w=400&q=80"
-    
-    # 3. Pinturas y Plástica: Témperas, Pinceles, Acrílicos
-    elif any(k in desc for k in ['TEMPERA', 'PINTURA', 'ACRILICO', 'PINCEL', 'ACUARELA', 'PIGMENTO', 'PLASTILINA']):
-        return "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=400&q=80"
-    
-    # 4. Cuadernos, Repuestos, Hojas y Libretas
-    elif any(k in desc for k in ['CUADERNO', 'REPUESTO', 'HOJA', 'LIBRETA', 'BLOCK', 'ANOTADOR', 'RIVADAVIA', 'SUCCESS', 'GLORIA']):
-        return "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&q=80"
-    
-    # 5. Mochilas, Cartucheras y Carpetas
-    elif any(k in desc for k in ['MOCHILA', 'CARTUCHERA', 'CARPETA', 'MALETIN', 'VALIJA', 'BIBLIORATO']):
-        return "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&q=80"
-    
-    # 6. Juegos Didácticos, Ábacos y Reglas
-    elif any(k in desc for k in ['ABACO', 'JUEGO', 'DIDACTICO', 'JUGUETE', 'PUZZLE', 'GEOMETRIA', 'COMPAS']):
-        return "https://images.unsplash.com/photo-1596464716127-f2a82984de30?w=400&q=80"
-    
-    # 7. Oficina: Abrochadoras, Cintas, Tijeras, Abrochadoras, Perforadoras
-    elif any(k in desc for k in ['ABROCHADORA', 'CORRECTOR', 'TIJERA', 'REGLA', 'CINTA', 'BROCHE', 'PERFORADORA', 'CLIP', 'CUTER', 'INVICTA', 'SINTEX']):
-        return "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=400&q=80"
-    
-    # Imagen por defecto para el resto de artículos
+    # SVG 1: Resma Boreal / Papeles (Verde y Amarillo con Caja y Paquete)
+    if any(k in desc for k in ['RESMA', 'PAPEL', 'BOREAL', 'AUTOR', 'A4', 'OFICIO', 'PUNTO 80']):
+        return """
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 250" width="100%" height="180">
+            <!-- Fondo neutro e-commerce -->
+            <rect width="300" height="250" fill="#f1f5f9" rx="8"/>
+            <!-- Sombra -->
+            <ellipse cx="150" cy="220" rx="110" ry="12" fill="#cbd5e1"/>
+            
+            <!-- Caja de Resmas Boreal (Atrás) -->
+            <rect x="40" y="70" width="110" height="130" fill="#ffffff" stroke="#94a3b8" stroke-width="2" rx="3"/>
+            <rect x="40" y="70" width="110" height="35" fill="#15803d" rx="2"/>
+            <text x="95" y="93" fill="#ffffff" font-family="Arial, sans-serif" font-weight="bold" font-size="14" text-anchor="middle">A4 80g</text>
+            <rect x="40" y="105" width="110" height="10" fill="#eab308"/>
+            
+            <!-- Paquete de Resma Boreal (Adelante) -->
+            <g transform="rotate(-3 190 135)">
+                <rect x="140" y="60" width="115" height="145" fill="#facc15" stroke="#ca8a04" stroke-width="2" rx="4"/>
+                <rect x="140" y="60" width="115" height="40" fill="#166534"/>
+                <text x="197" y="86" fill="#ffffff" font-family="Arial, sans-serif" font-weight="bold" font-size="16" text-anchor="middle">A4 80g</text>
+                <!-- Logo Boreal / Hoja -->
+                <path d="M 180 130 C 180 110 210 110 210 130 C 210 150 180 150 180 130 Z" fill="#15803d"/>
+                <text x="197" y="175" fill="#0f172a" font-family="Arial, sans-serif" font-weight="bold" font-size="18" text-anchor="middle">Boreal</text>
+                <text x="197" y="192" fill="#334155" font-family="Arial, sans-serif" font-size="9" text-anchor="middle">RESMA DE PAPEL</text>
+            </g>
+        </svg>
+        """
+        
+    # SVG 2: Lápices, Marcadores y Bolígrafos
+    elif any(k in desc for k in ['LAPIZ', 'MARCADOR', 'FIBRA', 'LAPICERA', 'BOLIGRAFO', 'MICROFIBRA']):
+        return """
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 250" width="100%" height="180">
+            <rect width="300" height="250" fill="#f1f5f9" rx="8"/>
+            <ellipse cx="150" cy="215" rx="80" ry="10" fill="#cbd5e1"/>
+            <!-- Lápiz 1 -->
+            <polygon points="90,190 105,190 105,60 90,60" fill="#f59e0b"/>
+            <polygon points="90,60 105,60 97,40" fill="#fde047"/>
+            <polygon points="95,45 100,45 97,40" fill="#1e293b"/>
+            <!-- Lápiz 2 -->
+            <polygon points="120,195 135,195 135,50 120,50" fill="#ef4444"/>
+            <polygon points="120,50 135,50 127,30" fill="#fde047"/>
+            <polygon points="125,35 130,35 127,30" fill="#1e293b"/>
+            <!-- Marcador -->
+            <rect x="150" y="70" width="22" height="130" fill="#2563eb" rx="3"/>
+            <rect x="150" y="45" width="22" height="25" fill="#1e40af" rx="2"/>
+        </svg>
+        """
+
+    # SVG 3: Cuadernos y Repuestos
+    elif any(k in desc for k in ['CUADERNO', 'REPUESTO', 'HOJA', 'LIBRETA', 'BLOCK', 'ANOTADOR']):
+        return """
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 250" width="100%" height="180">
+            <rect width="300" height="250" fill="#f1f5f9" rx="8"/>
+            <ellipse cx="150" cy="220" rx="90" ry="10" fill="#cbd5e1"/>
+            <rect x="80" y="45" width="140" height="165" fill="#1e3a8a" rx="5"/>
+            <rect x="95" y="45" width="125" height="165" fill="#3b82f6" rx="2"/>
+            <!-- Espiral -->
+            <circle cx="88" cy="65" r="5" fill="#94a3b8"/><circle cx="88" cy="95" r="5" fill="#94a3b8"/>
+            <circle cx="88" cy="125" r="5" fill="#94a3b8"/><circle cx="88" cy="155" r="5" fill="#94a3b8"/>
+            <circle cx="88" cy="185" r="5" fill="#94a3b8"/>
+            <rect x="115" y="80" width="85" height="12" fill="#ffffff" rx="2"/>
+            <text x="157" y="125" fill="#ffffff" font-family="Arial" font-weight="bold" font-size="16" text-anchor="middle">CUADERNO</text>
+        </svg>
+        """
+
+    # SVG 4: Abrochadoras y Oficina
     else:
-        return "https://images.unsplash.com/photo-1456735190827-d1262f71b8a3?w=400&q=80"
+        return """
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 250" width="100%" height="180">
+            <rect width="300" height="250" fill="#f1f5f9" rx="8"/>
+            <ellipse cx="150" cy="210" rx="80" ry="10" fill="#cbd5e1"/>
+            <path d="M 70 180 L 220 180 L 210 160 L 80 160 Z" fill="#475569"/>
+            <path d="M 80 155 L 210 155 C 210 120 160 110 120 120 L 80 155 Z" fill="#0f172a"/>
+            <rect x="75" y="175" width="150" height="10" fill="#0f172a" rx="2"/>
+            <text x="150" y="85" fill="#334155" font-family="Arial" font-weight="bold" font-size="14" text-anchor="middle">ARTÍCULO DE LIBRERÍA</text>
+        </svg>
+        """
 
 # ---------------------------------------------------------
 # 3. Carga y Preparación del Catálogo
@@ -103,9 +154,6 @@ def cargar_datos():
     df_limpio['COD_ARTICU'] = df_limpio['COD_ARTICU'].astype(str).str.strip()
     df_limpio['DESCRIPCIO'] = df_limpio['DESCRIPCIO'].astype(str).str.strip()
     df_limpio['PRECIO'] = df_limpio[col_precio].astype(float).round(2)
-    
-    # Asignación automática de la URL de imagen limpia
-    df_limpio['IMAGEN_URL'] = df_limpio['DESCRIPCIO'].apply(obtener_imagen_libreria)
     
     return df_limpio
 
@@ -148,7 +196,7 @@ with col_tienda:
     st.subheader("🔎 Buscador de Productos")
     busqueda = st.text_input(
         "Buscar por nombre o código de artículo:",
-        placeholder="Ej: BOREAL, RESMA, ABACO, TEMPERA, 013714, RIVADAVIA...",
+        placeholder="Ej: BOREAL, RESMA, ABACO, TEMPERA, 013714...",
         key="main_search"
     ).upper().strip()
 
@@ -168,10 +216,12 @@ with col_tienda:
 
     for idx, row in resultados.iterrows():
         with st.container(border=True):
-            img_col, text_col, action_col = st.columns([1.2, 2.5, 1.3])
+            img_col, text_col, action_col = st.columns([1.3, 2.4, 1.3])
             
             with img_col:
-                st.image(row['IMAGEN_URL'], use_container_width=True)
+                # Renderizado vectorial directo dentro del HTML sin consumo de red
+                svg_code = obtener_svg_producto(row['DESCRIPCIO'])
+                st.markdown(f"<div class='product-img-box'>{svg_code}</div>", unsafe_allow_html=True)
                 
             with text_col:
                 st.markdown(f"### {row['DESCRIPCIO']}")
