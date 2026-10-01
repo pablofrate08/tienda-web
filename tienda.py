@@ -8,15 +8,14 @@ st.set_page_config(page_title="Tienda Lkcfrate", page_icon="🛒", layout="wide"
 
 @st.cache_data
 def cargar_datos():
-    archivo = 'actualizacionesll.xlsx'
-    if not os.path.exists(archivo):
-        archivo = 'actualizacionesll.xlsx.xlsx'
+    archivo = 'derivadosll.xlsx'
     
     df = pd.read_excel(archivo)
-    df_limpio = df[['COD_ARTICU', 'DESCRIPCIO', 'FINAL']].dropna().copy()
+    # Seleccionamos las columnas de tu nuevo Excel
+    df_limpio = df[['COD_ARTICU', 'DESCRIPCIO', 'PRECIOFINAL']].dropna().copy()
     df_limpio['COD_ARTICU'] = df_limpio['COD_ARTICU'].astype(str).str.strip()
     df_limpio['DESCRIPCIO'] = df_limpio['DESCRIPCIO'].astype(str).str.strip()
-    df_limpio['FINAL'] = df_limpio['FINAL'].astype(float).round(2)
+    df_limpio['FINAL'] = df_limpio['PRECIOFINAL'].astype(float).round(2)
     return df_limpio
 
 # Cargar catálogo
@@ -39,7 +38,7 @@ col_tienda, col_carrito = st.columns([2, 1])
 
 with col_tienda:
     st.subheader("🔍 Buscar Productos")
-    busqueda = st.text_input("Ingresá código o nombre (ej: 25247, PA, tempera):", "").upper().strip()
+    busqueda = st.text_input("Ingresá código o nombre (ej: 013910, ABACO, tempera):", "").upper().strip()
 
     if busqueda:
         resultados = df[
@@ -47,8 +46,7 @@ with col_tienda:
             df['DESCRIPCIO'].str.upper().str.contains(busqueda)
         ]
     else:
-        # Mostramos 20 por defecto, pero si marcás la casilla abajo muestra TODOS
-        ver_todos = st.checkbox("Mostrar los 864 productos a la vez (puede ralentizar un poco la lista)")
+        ver_todos = st.checkbox("Mostrar todo el catálogo a la vez")
         if ver_todos:
             resultados = df
         else:
@@ -108,13 +106,10 @@ with col_carrito:
 
         resumen_texto += f"\n*Total Final:* ${total_final:,.2f}\n*Método de pago:* {metodo}"
 
-        # Botón dinámico según el método de pago elegido
         if metodo == "Mercado Pago":
-            # Cambiá este link por tu Link de Pago o Alias de Mercado Pago
-            link_mp = "https://link.mercadopago.com.ar/pablofratenga" 
+            link_mp = "https://link.mercadopago.com.ar/TULINKAQUI" 
             st.link_button("Pagar con Mercado Pago 💳", link_mp, type="primary")
         else:
-            # Opción para enviar el pedido al WhatsApp del negocio
-            telefono_ws = "549343XXXXXXX" # Reemplazá con tu número con código de país
+            telefono_ws = "549343XXXXXXX"
             url_whatsapp = f"https://wa.me/{telefono_ws}?text={urllib.parse.quote(resumen_texto)}"
             st.link_button("Finalizar Pedido por WhatsApp 📲", url_whatsapp, type="primary")
