@@ -47,28 +47,29 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. Función de Imágenes Estables por Categoría (Sin fallos)
+# 2. Mapeo de Imágenes Reales de Producto (Fondo Blanco)
 # ---------------------------------------------------------
-def obtener_imagen_estable(descripcion):
+def obtener_imagen_producto_real(descripcion):
     desc = str(descripcion).upper()
     
-    # Mapeo a URLs directas de imágenes estables y confiables
-    if any(k in desc for k in ['RESMA', 'PAPEL', 'CARTULINA', 'AFICHE', 'FOLIO', 'SOBRE']):
-        return "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?auto=format&fit=crop&w=400&q=80"
-    elif any(k in desc for k in ['TEMPERA', 'PINTURA', 'ACRILICO', 'PINCEL', 'ACUARELA', 'OLEO']):
-        return "https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=400&q=80"
-    elif any(k in desc for k in ['LAPIZ', 'MARCADOR', 'FIBRA', 'LAPICERA', 'BOLIGRAFO', 'MICROFIBRA', 'PORTAMINAS']):
-        return "https://images.unsplash.com/photo-1585336261026-8f5786392b6e?auto=format&fit=crop&w=400&q=80"
-    elif any(k in desc for k in ['CUADERNO', 'REPUESTO', 'HOJA', 'LIBRETA', 'BLOCK', 'ANOTADOR', 'AGENDA']):
-        return "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80"
-    elif any(k in desc for k in ['MOCHILA', 'CARTUCHERA', 'CARPETA', 'MALETIN', 'VALIJA']):
-        return "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=400&q=80"
+    # Imágenes comerciales aisladas sobre fondo neutro/blanco
+    if any(k in desc for k in ['RESMA', 'PAPEL', 'A4', 'AUTOR', 'BOREAL', 'DISCIPLINA', 'PUNTO 80']):
+        return "https://m.media-amazon.com/images/I/61M6K-f3d3L._AC_SL1200_.jpg"
+    elif any(k in desc for k in ['TEMPERA', 'PINTURA', 'ACRILICO', 'PINCEL', 'ACUARELA', 'PIGMENTOS']):
+        return "https://m.media-amazon.com/images/I/71Y+R4P+eRL._AC_SL1500_.jpg"
+    elif any(k in desc for k in ['LAPIZ', 'MARCADOR', 'FIBRA', 'LAPICERA', 'BOLIGRAFO', 'MICROFIBRA', 'FABER', 'SIMBALL']):
+        return "https://m.media-amazon.com/images/I/719fH3zUa-L._AC_SL1500_.jpg"
+    elif any(k in desc for k in ['CUADERNO', 'REPUESTO', 'HOJA', 'LIBRETA', 'BLOCK', 'ANOTADOR', 'RIVADAVIA', 'SUCCESS', 'GLORIA']):
+        return "https://m.media-amazon.com/images/I/71a2+Rk3F-L._AC_SL1500_.jpg"
+    elif any(k in desc for k in ['MOCHILA', 'CARTUCHERA', 'CARPETA', 'MALETIN']):
+        return "https://m.media-amazon.com/images/I/71c3V-0Jv4L._AC_SL1500_.jpg"
     elif any(k in desc for k in ['ABACO', 'JUEGO', 'DIDACTICO', 'JUGUETE', 'PUZZLE', 'GEOMETRIA']):
-        return "https://images.unsplash.com/photo-1596464716127-f2a82984de30?auto=format&fit=crop&w=400&q=80"
-    elif any(k in desc for k in ['ABROCHADORA', 'CORRECTOR', 'TIJERA', 'REGLA', 'CINTA', 'BROCHE', 'PERFORADORA', 'CLIP', 'CUTER']):
-        return "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?auto=format&fit=crop&w=400&q=80"
+        return "https://m.media-amazon.com/images/I/81xZ0J8yEIL._AC_SL1500_.jpg"
+    elif any(k in desc for k in ['ABROCHADORA', 'CORRECTOR', 'TIJERA', 'REGLA', 'CINTA', 'BROCHE', 'PERFORADORA', 'CLIP', 'CUTER', 'INVICTA']):
+        return "https://m.media-amazon.com/images/I/61NfXpG1x2L._AC_SL1200_.jpg"
     else:
-        return "https://images.unsplash.com/photo-1456735190827-d1262f71b8a3?auto=format&fit=crop&w=400&q=80"
+        # Producto genérico de librería comercial
+        return "https://m.media-amazon.com/images/I/61M6K-f3d3L._AC_SL1200_.jpg"
 
 # ---------------------------------------------------------
 # 3. Carga y Preparación del Catálogo
@@ -88,8 +89,8 @@ def cargar_datos():
     df_limpio['DESCRIPCIO'] = df_limpio['DESCRIPCIO'].astype(str).str.strip()
     df_limpio['PRECIO'] = df_limpio[col_precio].astype(float).round(2)
     
-    # Asignación automática de imagen
-    df_limpio['IMAGEN_URL'] = df_limpio['DESCRIPCIO'].apply(obtener_imagen_estable)
+    # Asignar imagen comercial sobre fondo blanco
+    df_limpio['IMAGEN_URL'] = df_limpio['DESCRIPCIO'].apply(obtener_imagen_producto_real)
     
     return df_limpio
 
@@ -132,7 +133,7 @@ with col_tienda:
     st.subheader("🔎 Buscador de Productos")
     busqueda = st.text_input(
         "Buscar por nombre o código de artículo:",
-        placeholder="Ej: ABACO, TEMPERA, 013910, ABROCHADORA, CUADERNO...",
+        placeholder="Ej: RESMA, BOREAL, ABACO, TEMPERA, 013910, ABROCHADORA...",
         key="main_search"
     ).upper().strip()
 
