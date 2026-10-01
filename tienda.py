@@ -47,41 +47,30 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. Mapeo de Fotos Reales de Productos (Fondo Blanco)
+# 2. Mapeo de Imágenes Locales y Confiables
 # ---------------------------------------------------------
 def obtener_imagen_producto_real(descripcion):
     desc = str(descripcion).upper()
     
-    # Foto real de Resma Boreal A4/Oficio con caja y paquete amarillo/verde
+    # Si la imagen boreal.png existe en GitHub, la usa de forma directa
     if any(k in desc for k in ['BOREAL', 'RESMA', 'AUTOR', 'PUNTO 80', 'A4', 'OFICIO', 'DISCIPLINA']):
-        return "https://http2.mlstatic.com/D_NQ_NP_900037-MLA47738243171_102021-O.webp"
+        if os.path.exists("boreal.png"):
+            return "boreal.png"
+        return "https://raw.githubusercontent.com/pablofrate08/tienda-web/main/boreal.png"
     
-    # Témperas y Pinturas
+    # Categorías de muestra con URLs libres globales
     elif any(k in desc for k in ['TEMPERA', 'PINTURA', 'ACRILICO', 'PINCEL', 'ACUARELA', 'PIGMENTOS']):
-        return "https://http2.mlstatic.com/D_NQ_NP_983198-MLA43285750242_082020-O.webp"
-    
-    # Lápices, Marcadores y Bolígrafos
-    elif any(k in desc for k in ['LAPIZ', 'MARCADOR', 'FIBRA', 'LAPICERA', 'BOLIGRAFO', 'MICROFIBRA', 'FABER', 'SIMBALL']):
-        return "https://http2.mlstatic.com/D_NQ_NP_753235-MLA44083818961_112020-O.webp"
-    
-    # Cuadernos, Repuestos y Hojas
-    elif any(k in desc for k in ['CUADERNO', 'REPUESTO', 'HOJA', 'LIBRETA', 'BLOCK', 'ANOTADOR', 'RIVADAVIA', 'SUCCESS', 'GLORIA']):
-        return "https://http2.mlstatic.com/D_NQ_NP_888126-MLA43743849132_102020-O.webp"
-    
-    # Mochilas y Cartucheras
-    elif any(k in desc for k in ['MOCHILA', 'CARTUCHERA', 'CARPETA', 'MALETIN']):
-        return "https://http2.mlstatic.com/D_NQ_NP_602334-MLA45305953041_032021-O.webp"
-    
-    # Ábacos y Juegos Didácticos
-    elif any(k in desc for k in ['ABACO', 'JUEGO', 'DIDACTICO', 'JUGUETE', 'PUZZLE', 'GEOMETRIA']):
-        return "https://http2.mlstatic.com/D_NQ_NP_833618-MLA43542283921_092020-O.webp"
-    
-    # Artículos de Oficina y Abrochadoras
-    elif any(k in desc for k in ['ABROCHADORA', 'CORRECTOR', 'TIJERA', 'REGLA', 'CINTA', 'BROCHE', 'PERFORADORA', 'CLIP', 'CUTER', 'INVICTA']):
-        return "https://http2.mlstatic.com/D_NQ_NP_843513-MLA43743841120_102020-O.webp"
-    
+        return "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=400"
+    elif any(k in desc for k in ['LAPIZ', 'MARCADOR', 'FIBRA', 'LAPICERA', 'BOLIGRAFO', 'MICROFIBRA']):
+        return "https://images.unsplash.com/photo-1585336261026-8f5786392b6e?w=400"
+    elif any(k in desc for k in ['CUADERNO', 'REPUESTO', 'HOJA', 'LIBRETA', 'BLOCK', 'ANOTADOR']):
+        return "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400"
+    elif any(k in desc for k in ['MOCHILA', 'CARTUCHERA', 'CARPETA']):
+        return "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400"
+    elif any(k in desc for k in ['ABACO', 'JUEGO', 'DIDACTICO', 'JUGUETE', 'PUZZLE']):
+        return "https://images.unsplash.com/photo-1596464716127-f2a82984de30?w=400"
     else:
-        return "https://http2.mlstatic.com/D_NQ_NP_900037-MLA47738243171_102021-O.webp"
+        return "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=400"
 
 # ---------------------------------------------------------
 # 3. Carga y Preparación del Catálogo
@@ -101,7 +90,6 @@ def cargar_datos():
     df_limpio['DESCRIPCIO'] = df_limpio['DESCRIPCIO'].astype(str).str.strip()
     df_limpio['PRECIO'] = df_limpio[col_precio].astype(float).round(2)
     
-    # Asignación de imagen de producto real
     df_limpio['IMAGEN_URL'] = df_limpio['DESCRIPCIO'].apply(obtener_imagen_producto_real)
     
     return df_limpio
