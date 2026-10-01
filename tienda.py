@@ -9,7 +9,7 @@ import math
 from PIL import Image, ImageDraw
 
 # ---------------------------------------------------------
-# 1. Configuración de la página (Estilo Corporativo)
+# 1. Configuración de la página
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="Tienda Virtual Lkcfrate | Mayorista & Minorista",
@@ -18,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilos CSS personalizados
+# Estilos CSS
 st.markdown("""
     <style>
     .header-box {
@@ -62,104 +62,80 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. Gestión de Caché Persistente de Imágenes
-# ---------------------------------------------------------
-CACHE_FILE = "imagenes_cache.json"
-
-def cargar_cache_imagenes():
-    if os.path.exists(CACHE_FILE):
-        try:
-            with open(CACHE_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return {}
-    return {}
-
-def guardar_cache_imagenes(cache):
-    try:
-        with open(CACHE_FILE, "w", encoding="utf-8") as f:
-            json.dump(cache, f, ensure_ascii=False, indent=2)
-    except Exception:
-        pass
-
-if 'imagenes_cache' not in st.session_state:
-    st.session_state.imagenes_cache = cargar_cache_imagenes()
-
-# ---------------------------------------------------------
-# 3. Generador PNG de Resguardo en Memoria (Evita FileNotFoundError)
+# 2. Generador PNG de Resguardo (Seguro en Memoria)
 # ---------------------------------------------------------
 def generar_imagen_respaldo_png(descripcion, codigo):
-    width, height = 400, 300
-    image = Image.new('RGB', (width, height), color='#f8fafc')
-    draw = ImageDraw.Draw(image)
-    
-    # Bordes limpios
-    draw.rectangle([(8, 8), (width-8, height-8)], outline='#e2e8f0', width=2)
-    draw.rectangle([(20, 20), (width-20, height-20)], fill='#ffffff', outline='#cbd5e1', width=1)
-    
-    d_text = str(descripcion).upper()
-    if len(d_text) > 28:
-        d_text = d_text[:26] + "..."
+    try:
+        width, height = 400, 300
+        image = Image.new('RGB', (width, height), color='#f8fafc')
+        draw = ImageDraw.Draw(image)
         
-    c_text = f"Cód: {codigo}"
-    
-    draw.text((200, 90), "📦 LKCFRATE LIBRERÍA", fill='#0284c7', anchor="ms")
-    draw.text((200, 135), d_text, fill='#0f172a', anchor="ms")
-    draw.text((200, 175), c_text, fill='#475569', anchor="ms")
-    draw.text((200, 215), "Imagen no disponible en catálogo", fill='#94a3b8', anchor="ms")
-    
-    buf = io.BytesIO()
-    image.save(buf, format='PNG')
-    buf.seek(0)
-    return buf
+        draw.rectangle([(8, 8), (width-8, height-8)], outline='#e2e8f0', width=2)
+        draw.rectangle([(20, 20), (width-20, height-20)], fill='#ffffff', outline='#cbd5e1', width=1)
+        
+        d_text = str(descripcion).upper()
+        if len(d_text) > 28:
+            d_text = d_text[:26] + "..."
+            
+        c_text = f"Cód: {codigo}"
+        
+        draw.text((200, 90), "📦 LKCFRATE LIBRERÍA", fill='#0284c7', anchor="ms")
+        draw.text((200, 135), d_text, fill='#0f172a', anchor="ms")
+        draw.text((200, 175), c_text, fill='#475569', anchor="ms")
+        draw.text((200, 215), "Imagen no disponible", fill='#94a3b8', anchor="ms")
+        
+        buf = io.BytesIO()
+        image.save(buf, format='PNG')
+        buf.seek(0)
+        return buf
+    except Exception:
+        return None
 
 # ---------------------------------------------------------
-# 4. Buscador Automático de Imágenes Reales (Mercado Libre MLA)
+# 3. Buscador de Imágenes Con Protección Anti-Colapso
 # ---------------------------------------------------------
+if 'imagenes_cache' not in st.session_state:
+    st.session_state.imagenes_cache = {}
+
 def buscar_imagen_real_producto(row):
     cod_art = str(row.get('COD_ARTICU', '')).strip()
     desc = str(row.get('DESCRIPCIO', '')).strip()
-    cod_barra = str(row.get('COD_BARRA', '')).strip() if 'COD_BARRA' in row and pd.notna(row.get('COD_BARRA')) else ""
+    cod_barra = str(row.get('COD_BARRA', '')).strip() if pd.notna(row.get('COD_BARRA')) else ""
     
     cache_key = cod_art if cod_art else desc
     
     if cache_key in st.session_state.imagenes_cache:
         return st.session_state.imagenes_cache[cache_key]
 
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+    headers = {'User-Agent': 'Mozilla/5.0'}
     
-    # Estrategia de búsqueda
     consultas = []
     if cod_barra and len(cod_barra) >= 8 and cod_barra.isdigit():
         consultas.append(cod_barra)
-    if desc:
-        consultas.append(f"{desc}")
+    if desc and desc != "Producto sin descripción":
+        consultas.append(desc)
         
     for q in consultas:
         try:
             url_api = f"https://api.mercadolibre.com/sites/MLA/search?q={urllib.parse.quote(q)}&limit=1"
-            resp = requests.get(url_api, headers=headers, timeout=2.5)
+            resp = requests.get(url_api, headers=headers, timeout=1.5)
             if resp.status_code == 200:
                 data = resp.json()
                 results = data.get('results', [])
                 if results:
                     thumb = results[0].get('thumbnail', '')
                     if thumb:
-                        # Mejora la resolución sustituyendo -I.jpg por -O.jpg
                         high_res = thumb.replace("-I.jpg", "-O.jpg").replace("http://", "https://")
                         st.session_state.imagenes_cache[cache_key] = high_res
-                        guardar_cache_imagenes(st.session_state.imagenes_cache)
                         return high_res
         except Exception:
-            continue
+            pass
             
-    # Guarda None si no encuentra resultado online para usar el respaldo
     st.session_state.imagenes_cache[cache_key] = None
-    guardar_cache_imagenes(st.session_state.imagenes_cache)
     return None
 
 # ---------------------------------------------------------
-# 5. Carga Completa del Excel (Sin descartar filas)
+# 4. Carga Flexible y Tolerante del Excel
 # ---------------------------------------------------------
 @st.cache_data
 def cargar_datos():
@@ -167,36 +143,34 @@ def cargar_datos():
     if not os.path.exists(archivo):
         archivo = 'actualizacionesll.xlsx'
         
+    if not os.path.exists(archivo):
+        st.error(f"⚠️ No se encontró el archivo Excel (`derivadosll.xlsx`) en la carpeta del proyecto.")
+        st.stop()
+        
     df = pd.read_excel(archivo)
     
-    col_precio = 'PRECIOFINAL' if 'PRECIOFINAL' in df.columns else ('FINAL' if 'FINAL' in df.columns else None)
+    # Normalizar nombres de columnas a mayúsculas sin espacios
+    df.columns = [str(c).strip().upper() for c in df.columns]
     
-    df_limpio = df.copy()
+    # Mapeo flexible de columnas
+    col_codigo = next((c for c in ['COD_ARTICU', 'CODIGO', 'COD', 'ARTICULO'] if c in df.columns), None)
+    col_desc = next((c for c in ['DESCRIPCIO', 'DESCRIPCION', 'NOMBRE', 'DETALLE'] if c in df.columns), None)
+    col_precio = next((c for c in ['PRECIOFINAL', 'FINAL', 'PRECIO_FINAL', 'PRECIO'] if c in df.columns), None)
+    col_barra = next((c for c in ['COD_BARRA', 'BARRA', 'EAN', 'CODIGO_BARRA'] if c in df.columns), None)
     
-    if 'COD_ARTICU' not in df_limpio.columns:
-        df_limpio['COD_ARTICU'] = df_limpio.index.astype(str)
-    if 'DESCRIPCIO' not in df_limpio.columns:
-        df_limpio['DESCRIPCIO'] = "Producto sin descripción"
-        
-    df_limpio['COD_ARTICU'] = df_limpio['COD_ARTICU'].astype(str).str.strip()
-    df_limpio['DESCRIPCIO'] = df_limpio['DESCRIPCIO'].astype(str).str.strip()
+    df_limpio = pd.DataFrame()
     
-    if col_precio:
-        df_limpio['PRECIO'] = pd.to_numeric(df_limpio[col_precio], errors='coerce')
-    else:
-        df_limpio['PRECIO'] = None
-        
-    if 'COD_BARRA' in df_limpio.columns:
-        df_limpio['COD_BARRA'] = df_limpio['COD_BARRA'].astype(str).str.strip().replace('nan', '')
-    else:
-        df_limpio['COD_BARRA'] = ""
-        
+    df_limpio['COD_ARTICU'] = df[col_codigo].astype(str).str.strip() if col_codigo else df.index.astype(str)
+    df_limpio['DESCRIPCIO'] = df[col_desc].astype(str).str.strip() if col_desc else "Producto sin descripción"
+    df_limpio['PRECIO'] = pd.to_numeric(df[col_precio], errors='coerce') if col_precio else None
+    df_limpio['COD_BARRA'] = df[col_barra].astype(str).str.strip().replace('nan', '') if col_barra else ""
+    
     return df_limpio
 
 try:
     df = cargar_datos()
 except Exception as e:
-    st.error(f"⚠️ Error al conectar con el archivo Excel de productos: {e}")
+    st.error(f"⚠️ Error al procesar el Excel: {e}")
     st.stop()
 
 # Inicialización del carrito
@@ -204,7 +178,7 @@ if 'carrito' not in st.session_state:
     st.session_state.carrito = []
 
 # ---------------------------------------------------------
-# 6. Encabezado / Banner Institucional
+# 5. Banner Principal
 # ---------------------------------------------------------
 st.markdown("""
     <div class="header-box">
@@ -214,7 +188,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 7. Barra Lateral de Navegación, Filtros y Paginación
+# 6. Barra Lateral
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("⚙️ Panel de Control")
@@ -227,7 +201,7 @@ with st.sidebar:
     st.info("Atención de Lunes a Viernes de 8:00 a 17:00 hs.\n\nEnvíos a todo el país.")
 
 # ---------------------------------------------------------
-# 8. Cuerpo Principal: Búsqueda y Resultados Paginados
+# 7. Buscador y Listado
 # ---------------------------------------------------------
 col_tienda, col_carrito = st.columns([2.2, 1])
 
@@ -263,7 +237,6 @@ with col_tienda:
     fin_idx = inicio_idx + PRODUCTOS_POR_PAGINA
     pagina_productos = resultados.iloc[inicio_idx:fin_idx]
 
-    # Renderizado de Tarjetas de Productos
     for idx, row in pagina_productos.iterrows():
         with st.container(border=True):
             img_col, text_col, action_col = st.columns([1.2, 2.5, 1.3])
@@ -274,7 +247,8 @@ with col_tienda:
                     st.image(img_url, use_container_width=True)
                 else:
                     png_fallback = generar_imagen_respaldo_png(row['DESCRIPCIO'], row['COD_ARTICU'])
-                    st.image(png_fallback, use_container_width=True)
+                    if png_fallback:
+                        st.image(png_fallback, use_container_width=True)
                 
             with text_col:
                 st.markdown(f"### {row['DESCRIPCIO']}")
@@ -291,8 +265,6 @@ with col_tienda:
                 
             with action_col:
                 cant = st.number_input("Cantidad:", min_value=1, value=1, key=f"cant_{idx}")
-                
-                # Deshabilitar botón de agregar si no tiene precio
                 puede_agregar = pd.notna(row['PRECIO']) and row['PRECIO'] > 0
                 
                 if st.button("🛒 Agregar", key=f"btn_{idx}", disabled=not puede_agregar, use_container_width=True):
@@ -306,7 +278,7 @@ with col_tienda:
                     st.toast(f"Agregado al carrito: {row['DESCRIPCIO']}", icon="✅")
 
 # ---------------------------------------------------------
-# 9. Columna Derecha: Carrito y Pedido Formal
+# 8. Carrito de Compras
 # ---------------------------------------------------------
 with col_carrito:
     st.subheader("🛍️ Resumen de Compra")
