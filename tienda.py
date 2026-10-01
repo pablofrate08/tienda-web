@@ -47,30 +47,44 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. Mapeo de Imágenes Locales y Confiables
+# 2. Mapeo Extensivo de Imágenes Libres y Estables por Producto
 # ---------------------------------------------------------
-def obtener_imagen_producto_real(descripcion):
+def obtener_imagen_libreria(descripcion):
     desc = str(descripcion).upper()
     
-    # Si la imagen boreal.png existe en GitHub, la usa de forma directa
-    if any(k in desc for k in ['BOREAL', 'RESMA', 'AUTOR', 'PUNTO 80', 'A4', 'OFICIO', 'DISCIPLINA']):
-        if os.path.exists("boreal.png"):
-            return "boreal.png"
-        return "https://raw.githubusercontent.com/pablofrate08/tienda-web/main/boreal.png"
+    # 1. Resmas, Papel y Cartulinas (Servidor abierto Wikimedia / CDN libre)
+    if any(k in desc for k in ['RESMA', 'PAPEL', 'A4', 'AUTOR', 'BOREAL', 'PUNTO 80', 'OFICIO', 'DISCIPLINA']):
+        return "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Paper_ream.jpg/800px-Paper_ream.jpg"
+    elif any(k in desc for k in ['CARTULINA', 'AFICHE', 'FOLIO', 'SOBRE', 'CARTON', 'PAPEL CREP']):
+        return "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=400&q=80"
     
-    # Categorías de muestra con URLs libres globales
-    elif any(k in desc for k in ['TEMPERA', 'PINTURA', 'ACRILICO', 'PINCEL', 'ACUARELA', 'PIGMENTOS']):
-        return "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=400"
-    elif any(k in desc for k in ['LAPIZ', 'MARCADOR', 'FIBRA', 'LAPICERA', 'BOLIGRAFO', 'MICROFIBRA']):
-        return "https://images.unsplash.com/photo-1585336261026-8f5786392b6e?w=400"
-    elif any(k in desc for k in ['CUADERNO', 'REPUESTO', 'HOJA', 'LIBRETA', 'BLOCK', 'ANOTADOR']):
-        return "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400"
-    elif any(k in desc for k in ['MOCHILA', 'CARTUCHERA', 'CARPETA']):
-        return "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400"
-    elif any(k in desc for k in ['ABACO', 'JUEGO', 'DIDACTICO', 'JUGUETE', 'PUZZLE']):
-        return "https://images.unsplash.com/photo-1596464716127-f2a82984de30?w=400"
+    # 2. Escritura: Lápices, Marcadores, Bolígrafos, Microfribras
+    elif any(k in desc for k in ['LAPIZ', 'MARCADOR', 'FIBRA', 'LAPICERA', 'BOLIGRAFO', 'MICROFIBRA', 'FABER', 'SIMBALL', 'BIC']):
+        return "https://images.unsplash.com/photo-1585336261026-8f5786392b6e?w=400&q=80"
+    
+    # 3. Pinturas y Plástica: Témperas, Pinceles, Acrílicos
+    elif any(k in desc for k in ['TEMPERA', 'PINTURA', 'ACRILICO', 'PINCEL', 'ACUARELA', 'PIGMENTO', 'PLASTILINA']):
+        return "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=400&q=80"
+    
+    # 4. Cuadernos, Repuestos, Hojas y Libretas
+    elif any(k in desc for k in ['CUADERNO', 'REPUESTO', 'HOJA', 'LIBRETA', 'BLOCK', 'ANOTADOR', 'RIVADAVIA', 'SUCCESS', 'GLORIA']):
+        return "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&q=80"
+    
+    # 5. Mochilas, Cartucheras y Carpetas
+    elif any(k in desc for k in ['MOCHILA', 'CARTUCHERA', 'CARPETA', 'MALETIN', 'VALIJA', 'BIBLIORATO']):
+        return "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&q=80"
+    
+    # 6. Juegos Didácticos, Ábacos y Reglas
+    elif any(k in desc for k in ['ABACO', 'JUEGO', 'DIDACTICO', 'JUGUETE', 'PUZZLE', 'GEOMETRIA', 'COMPAS']):
+        return "https://images.unsplash.com/photo-1596464716127-f2a82984de30?w=400&q=80"
+    
+    # 7. Oficina: Abrochadoras, Cintas, Tijeras, Abrochadoras, Perforadoras
+    elif any(k in desc for k in ['ABROCHADORA', 'CORRECTOR', 'TIJERA', 'REGLA', 'CINTA', 'BROCHE', 'PERFORADORA', 'CLIP', 'CUTER', 'INVICTA', 'SINTEX']):
+        return "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=400&q=80"
+    
+    # Imagen por defecto para el resto de artículos
     else:
-        return "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=400"
+        return "https://images.unsplash.com/photo-1456735190827-d1262f71b8a3?w=400&q=80"
 
 # ---------------------------------------------------------
 # 3. Carga y Preparación del Catálogo
@@ -90,7 +104,8 @@ def cargar_datos():
     df_limpio['DESCRIPCIO'] = df_limpio['DESCRIPCIO'].astype(str).str.strip()
     df_limpio['PRECIO'] = df_limpio[col_precio].astype(float).round(2)
     
-    df_limpio['IMAGEN_URL'] = df_limpio['DESCRIPCIO'].apply(obtener_imagen_producto_real)
+    # Asignación automática de la URL de imagen limpia
+    df_limpio['IMAGEN_URL'] = df_limpio['DESCRIPCIO'].apply(obtener_imagen_libreria)
     
     return df_limpio
 
@@ -133,7 +148,7 @@ with col_tienda:
     st.subheader("🔎 Buscador de Productos")
     busqueda = st.text_input(
         "Buscar por nombre o código de artículo:",
-        placeholder="Ej: BOREAL, RESMA, ABACO, TEMPERA, 013714...",
+        placeholder="Ej: BOREAL, RESMA, ABACO, TEMPERA, 013714, RIVADAVIA...",
         key="main_search"
     ).upper().strip()
 
