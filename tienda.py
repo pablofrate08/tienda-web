@@ -4,8 +4,9 @@ import requests
 import re
 import html
 import os
-import base64
 from io import BytesIO
+
+from PIL import Image, ImageDraw, ImageFont
 from urllib.parse import quote_plus
 
 # =========================================================
@@ -169,62 +170,91 @@ def tokens_importantes(texto):
     }
 
 
-def crear_svg_respaldo(nombre, codigo):
+def crear_imagen_respaldo(nombre, codigo):
     """
-    Crea una imagen individual de respaldo.
-    No queda una tarjeta vacía aunque no exista una foto real disponible.
+    Crea una imagen PNG REAL en memoria para usar como respaldo.
+
+    Es importante que sea PNG y no un texto SVG, porque Streamlit puede
+    interpretar un string SVG como una ruta/URL y provocar FileNotFoundError.
     """
-    nombre_limpio = html.escape(str(nombre)[:42])
-    codigo_limpio = html.escape(str(codigo)[:24])
+    ancho, alto = 900, 650
 
-    svg = f"""
-    <svg xmlns="http://www.w3.org/2000/svg" width="900" height="650" viewBox="0 0 900 650">
-        <rect width="900" height="650" fill="#f8fafc"/>
-        <rect x="35" y="35" width="830" height="580" rx="28" fill="#ffffff"
-              stroke="#dbe4ee" stroke-width="4"/>
+    imagen = Image.new("RGB", (ancho, alto), "#f8fafc")
+    dibujo = ImageDraw.Draw(imagen)
 
-        <rect x="260" y="105" width="380" height="240" rx="22"
-              fill="#edf2f7" stroke="#cbd5e1" stroke-width="3"/>
+    # Fuentes por defecto: no dependemos de archivos externos.
+    fuente_grande = ImageFont.load_default(size=32)
+    fuente_media = ImageFont.load_default(size=24)
+    fuente_chica = ImageFont.load_default(size=18)
 
-        <circle cx="450" cy="210" r="62" fill="#d7e1ec"/>
-        <rect x="354" y="285" width="192" height="22" rx="11" fill="#c5d2df"/>
+    # Marco principal.
+    dibujo.rounded_rectangle(
+        (35, 35, ancho - 35, alto - 35),
+        radius=28,
+        fill="#ffffff",
+        outline="#dbe4ee",
+        width=4,
+    )
 
-        <text x="450" y="390"
-              text-anchor="middle"
-              font-family="Arial, sans-serif"
-              font-size="32"
-              font-weight="700"
-              fill="#0b2d4d">
-            Imagen del producto
-        </text>
+    # Ilustración neutra del artículo.
+    dibujo.rounded_rectangle(
+        (260, 105, 640, 345),
+        radius=22,
+        fill="#edf2f7",
+        outline="#cbd5e1",
+        width=3,
+    )
+    dibujo.ellipse(
+        (388, 148, 512, 272),
+        fill="#d7e1ec",
+    )
+    dibujo.rounded_rectangle(
+        (354, 285, 546, 307),
+        radius=11,
+        fill="#c5d2df",
+    )
 
-        <text x="450" y="440"
-              text-anchor="middle"
-              font-family="Arial, sans-serif"
-              font-size="25"
-              fill="#334155">
-            {nombre_limpio}
-        </text>
+    # Texto.
+    titulo = "Imagen del producto"
+    bbox = dibujo.textbbox((0, 0), titulo, font=fuente_grande)
+    dibujo.text(
+        ((ancho - (bbox[2] - bbox[0])) / 2, 390),
+        titulo,
+        fill="#0b2d4d",
+        font=fuente_grande,
+    )
 
-        <text x="450" y="482"
-              text-anchor="middle"
-              font-family="Arial, sans-serif"
-              font-size="19"
-              fill="#64748b">
-            Código: {codigo_limpio}
-        </text>
+    nombre = str(nombre or "Producto")[:52]
+    bbox = dibujo.textbbox((0, 0), nombre, font=fuente_media)
+    dibujo.text(
+        ((ancho - (bbox[2] - bbox[0])) / 2, 440),
+        nombre,
+        fill="#334155",
+        font=fuente_media,
+    )
 
-        <text x="450" y="550"
-              text-anchor="middle"
-              font-family="Arial, sans-serif"
-              font-size="17"
-              fill="#94a3b8">
-            Foto real pendiente de una fuente pública compatible
-        </text>
-    </svg>
-    """
+    codigo = str(codigo or "-")[:28]
+    etiqueta = f"Código: {codigo}"
+    bbox = dibujo.textbbox((0, 0), etiqueta, font=fuente_chica)
+    dibujo.text(
+        ((ancho - (bbox[2] - bbox[0])) / 2, 485),
+        etiqueta,
+        fill="#64748b",
+        font=fuente_chica,
+    )
 
-    return svg
+    pie = "No se encontró una foto pública compatible"
+    bbox = dibujo.textbbox((0, 0), pie, font=fuente_chica)
+    dibujo.text(
+        ((ancho - (bbox[2] - bbox[0])) / 2, 550),
+        pie,
+        fill="#94a3b8",
+        font=fuente_chica,
+    )
+
+    buffer = BytesIO()
+    imagen.save(buffer, format="PNG")
+    return buffer.getvalue()
 
 
 # =========================================================
@@ -421,7 +451,7 @@ def obtener_visual_producto(row):
         if imagen_bytes:
             return imagen_bytes, True
 
-    return crear_svg_respaldo(descripcion, codigo_articulo), False
+    return crear_imagen_respaldo(descripcion, codigo_articulo), False
 
 
 # =========================================================
