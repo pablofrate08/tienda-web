@@ -8,6 +8,7 @@ from io import BytesIO
 
 from PIL import Image, ImageDraw, ImageFont
 from urllib.parse import quote_plus
+from bs4 import BeautifulSoup
 
 # =========================================================
 # TIENDA VIRTUAL LKCFRATE
@@ -269,126 +270,378 @@ def texto_precio(valor):
 # BÚSQUEDA AUTOMÁTICA DE IMÁGENES
 # =========================================================
 
+HEADERS_NAVEGADOR = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/154.0 Safari/537.36"
+    ),
+    "Accept-Language": "es-AR,es;q=0.9,en;q=0.8",
+}
+
+
+def limpiar_consulta(texto):
+    """Convierte un texto de producto en una consulta limpia."""
+    texto = str(texto or "").strip()
+    texto = re.sub(r"\s+", " ", texto)
+    return texto[:180]
+
+
+def consultas_producto(codigo_barra, codigo_articulo, descripcion):
+    """
+    Genera consultas en orden de precisión.
+
+    Primero usamos el código de barras, porque es el identificador
+    más preciso. Luego combinamos código + descripción y finalmente
+    la descripción sola.
+    """
+    barra = str(codigo_barra or "").strip()
+    codigo = str(codigo_articulo or "").strip()
+    desc = limpiar_consulta(descripcion)
+
+    consultas = []
+
+    if barra and len(re.sub(r"\D", "", barra)) >= 6:
+        numero_barra = re.sub(r"\D", "", barra)
+        consultas.append(f'"{numero_barra}"')
+
+    if codigo and desc:
+        consultas.append(f'"{codigo}" "{desc}"')
+
+    if desc:
+        consultas.append(f'"{desc}"')
+
+    # Quitamos duplicados preservando el orden.
+    resultado = []
+    vistos = set()
+
+    for consulta in consultas:
+        if consulta not in vistos:
+            vistos.add(consulta)
+            resultado.append(consulta)
+
+    return resultado
+
+
+@st.cache_data(ttl=CACHE_IMAGEN_SEGUNDOS, show_spinner=False)
+def buscar_imagen_ddg(consulta):
+    """
+    Busca imágenes usando la búsqueda de imágenes pública de DuckDuckGo.
+
+    No necesita una clave API.
+    Devuelve una lista pequeña de candidatos con:
+      - imagen real
+      - miniatura
+      - título
+      - página de origen
+    """
+
+    consulta = limpiar_consulta(consulta)
+
+    if not consulta:
+        return []
+
+    try:
+        session = requests.Session()
+
+        # Primera petición para obtener el token VQD.
+        pagina = session.get(
+            "https://duckduckgo.com/",
+            params={
+                "q": consulta,
+                "ia": "images",
+                "iax": "images",
+            },
+            headers=HEADERS_NAVEGADOR,
+            timeout=10,
+        )
+
+        if pagina.status_code != 200:
+            return []
+
+        texto = pagina.text
+
+        patrones_vqd = [
+            r"vqd='([^']+)'",
+            r'vqd="([^"]+)"',
+            r'"vqd":"([^"]+)"',
+            r"vqd=([\d-]+)",
+        ]
+
+        vqd = None
+
+        for patron in patrones_vqd:
+            coincidencia = re.search(patron, texto)
+
+            if coincidencia:
+                vqd = coincidencia.group(1)
+                break
+
+        if not vqd:
+            return []
+
+        # Segunda petición: resultados de imágenes.
+        respuesta = session.get(
+            "https://duckduckgo.com/i.js",
+            params={
+                "l": "ar-es",
+                "o": "json",
+                "q": consulta,
+                "vqd": vqd,
+                "f": ",,,",
+                "p": "1",
+            },
+            headers={
+                **HEADERS_NAVEGADOR,
+                "Referer": "https://duckduckgo.com/",
+                "Accept": "application/json, text/javascript, */*; q=0.01",
+                "X-Requested-With": "XMLHttpRequest",
+            },
+            timeout=12,
+        )
+
+        if respuesta.status_code != 200:
+            return []
+
+        datos = respuesta.json()
+        candidatos = datos.get("results", [])
+
+        resultado = []
+
+        for candidato in candidatos[:12]:
+            resultado.append(
+                {
+                    "image": candidato.get("image"),
+                    "thumbnail": candidato.get("thumbnail"),
+                    "title": candidato.get("title", ""),
+                    "url": candidato.get("url", ""),
+                    "width": candidato.get("width"),
+                    "height": candidato.get("height"),
+                }
+            )
+
+        return resultado
+
+    except (
+        requests.RequestException,
+        ValueError,
+        TypeError,
+        AttributeError,
+    ):
+        return []
+
+
+@st.cache_data(ttl=CACHE_IMAGEN_SEGUNDOS, show_spinner=False)
+def buscar_og_image_en_web(consulta):
+    """
+    Segunda vía de recuperación:
+    busca páginas web relacionadas y extrae og:image/twitter:image.
+
+    Esto es especialmente útil cuando el código de barras lleva a una ficha
+    de producto de una librería/mayorista y esa página tiene la imagen del
+    artículo en sus metadatos.
+    """
+
+    consulta = limpiar_consulta(consulta)
+
+    if not consulta:
+        return None
+
+    try:
+        session = requests.Session()
+
+        respuesta = session.post(
+            "https://html.duckduckgo.com/html/",
+            data={"q": consulta},
+            headers=HEADERS_NAVEGADOR,
+            timeout=10,
+        )
+
+        if respuesta.status_code != 200:
+            return None
+
+        soup = BeautifulSoup(respuesta.text, "html.parser")
+
+        enlaces = []
+
+        for enlace in soup.select("a.result__a"):
+            href = enlace.get("href")
+
+            if href and href.startswith("http"):
+                enlaces.append(href)
+
+        # Evitamos demasiadas descargas por producto.
+        for enlace in enlaces[:4]:
+            try:
+                pagina = session.get(
+                    enlace,
+                    headers=HEADERS_NAVEGADOR,
+                    timeout=8,
+                    allow_redirects=True,
+                )
+
+                if pagina.status_code != 200:
+                    continue
+
+                soup_pagina = BeautifulSoup(
+                    pagina.text,
+                    "html.parser",
+                )
+
+                # Prioridad 1: Open Graph.
+                for selector in [
+                    ("meta", {"property": "og:image"}),
+                    ("meta", {"property": "og:image:url"}),
+                    ("meta", {"name": "twitter:image"}),
+                    ("meta", {"name": "twitter:image:src"}),
+                ]:
+                    meta = soup_pagina.find(*selector)
+
+                    if meta and meta.get("content"):
+                        imagen = meta["content"].strip()
+
+                        if imagen.startswith("http"):
+                            return imagen
+
+                # Prioridad 2: JSON-LD con campo image.
+                for script in soup_pagina.find_all(
+                    "script",
+                    type="application/ld+json",
+                ):
+                    try:
+                        import json
+
+                        datos = json.loads(script.string or script.get_text())
+
+                        objetos = datos if isinstance(datos, list) else [datos]
+
+                        for obj in objetos:
+                            if not isinstance(obj, dict):
+                                continue
+
+                            imagen = obj.get("image")
+
+                            if isinstance(imagen, str):
+                                if imagen.startswith("http"):
+                                    return imagen
+
+                            if isinstance(imagen, list):
+                                for elemento in imagen:
+                                    if (
+                                        isinstance(elemento, str)
+                                        and elemento.startswith("http")
+                                    ):
+                                        return elemento
+
+                    except (
+                        ValueError,
+                        TypeError,
+                        json.JSONDecodeError,
+                    ):
+                        continue
+
+            except requests.RequestException:
+                continue
+
+    except requests.RequestException:
+        return None
+
+    return None
+
+
+def puntuar_candidato(candidato, descripcion, codigo_barra, codigo_articulo):
+    """
+    Puntúa una imagen por coincidencia del título y la consulta.
+    """
+    titulo = normalizar_texto(candidato.get("title", ""))
+    desc_tokens = tokens_importantes(descripcion)
+
+    coincidencias = len(desc_tokens & set(titulo.split()))
+    puntaje = coincidencias * 10
+
+    titulo_sin_simbolos = re.sub(r"\D", "", titulo)
+    barra_limpia = re.sub(r"\D", "", str(codigo_barra or ""))
+    codigo_limpio = normalizar_texto(codigo_articulo)
+
+    if barra_limpia and len(barra_limpia) >= 6:
+        if barra_limpia in titulo_sin_simbolos:
+            puntaje += 100
+
+    if codigo_limpio and codigo_limpio in titulo:
+        puntaje += 40
+
+    return puntaje
+
+
 @st.cache_data(ttl=CACHE_IMAGEN_SEGUNDOS, show_spinner=False)
 def buscar_imagen_url(codigo_barra, codigo_articulo, descripcion):
     """
     Busca una imagen individual del producto.
 
-    Prioridad:
-    1) Código de barras.
-    2) Código de artículo.
-    3) Descripción.
-
-    Se consulta Mercado Libre Argentina mediante su buscador público.
-    Si no hay una coincidencia razonable, devuelve None.
+    Orden:
+    1. Búsqueda por código de barras.
+    2. Búsqueda por código + descripción.
+    3. Búsqueda por descripción.
+    4. Recuperación de og:image desde una ficha de producto encontrada.
     """
 
-    codigo_barra = normalizar_texto(codigo_barra)
-    codigo_articulo = normalizar_texto(codigo_articulo)
-    descripcion_original = str(descripcion or "").strip()
+    consultas = consultas_producto(
+        codigo_barra,
+        codigo_articulo,
+        descripcion,
+    )
 
-    queries = []
+    # -----------------------------------------------------
+    # VÍA 1: búsqueda de imágenes
+    # -----------------------------------------------------
 
-    # El código de barras suele ser el dato más preciso.
-    if codigo_barra and len(codigo_barra) >= 6:
-        queries.append(("barcode", codigo_barra))
+    for indice, consulta in enumerate(consultas):
+        candidatos = buscar_imagen_ddg(consulta)
 
-    # Código interno.
-    if codigo_articulo:
-        queries.append(("codigo", codigo_articulo))
+        if not candidatos:
+            continue
 
-    # Nombre.
-    if descripcion_original:
-        queries.append(("descripcion", descripcion_original))
-
-    session = requests.Session()
-
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/154.0 Safari/537.36"
+        candidatos_ordenados = sorted(
+            candidatos,
+            key=lambda candidato: puntuar_candidato(
+                candidato,
+                descripcion,
+                codigo_barra,
+                codigo_articulo,
+            ),
+            reverse=True,
         )
-    }
 
-    for tipo_busqueda, query in queries:
-        try:
-            response = session.get(
-                ML_SEARCH_URL,
-                params={
-                    "q": query,
-                    "limit": 8,
-                },
-                headers=headers,
-                timeout=8,
-            )
-
-            if response.status_code != 200:
-                continue
-
-            data = response.json()
-            resultados = data.get("results", [])
-
-            if not resultados:
-                continue
-
-            mejor_resultado = None
-            mejor_puntaje = -1
-
-            tokens_producto = tokens_importantes(descripcion_original)
-
-            for resultado in resultados:
-                titulo = resultado.get("title", "")
-                titulo_tokens = tokens_importantes(titulo)
-
-                # Coincidencia por palabras.
-                coincidencias = len(tokens_producto & titulo_tokens)
-
-                # Puntaje relativo.
-                puntaje = coincidencias * 10
-
-                titulo_normalizado = normalizar_texto(titulo)
-
-                # Prioridad extra para códigos que aparezcan en el título.
-                if codigo_barra and codigo_barra in titulo_normalizado:
-                    puntaje += 100
-
-                if codigo_articulo and codigo_articulo in titulo_normalizado:
-                    puntaje += 50
-
-                # Si la búsqueda fue por código de barras, damos más peso.
-                if tipo_busqueda == "barcode":
-                    puntaje += 25
-
-                if puntaje > mejor_puntaje:
-                    mejor_puntaje = puntaje
-                    mejor_resultado = resultado
-
-            if mejor_resultado is None:
-                continue
-
-            # Evitamos aceptar cualquier producto totalmente distinto.
-            if tipo_busqueda == "descripcion" and mejor_puntaje < 10:
-                continue
-
-            # Mercado Libre suele ofrecer thumbnail / secure_thumbnail.
+        for candidato in candidatos_ordenados[:5]:
+            # Primero la imagen original; luego la miniatura.
             imagen = (
-                mejor_resultado.get("secure_thumbnail")
-                or mejor_resultado.get("thumbnail")
+                candidato.get("image")
+                or candidato.get("thumbnail")
             )
 
-            # Si la miniatura no existe, intentamos pictures.
-            if not imagen:
-                pictures = mejor_resultado.get("pictures", [])
-                if pictures:
-                    primera = pictures[0]
-                    imagen = primera.get("secure_url") or primera.get("url")
-
-            if imagen:
+            if imagen and imagen.startswith("http"):
                 return imagen
 
-        except (requests.RequestException, ValueError, TypeError):
-            continue
+        # Para el código de barras, si hubo resultados, confiamos especialmente
+        # en el primer grupo porque la consulta ya era muy específica.
+        if indice == 0 and candidatos_ordenados:
+            imagen = (
+                candidatos_ordenados[0].get("image")
+                or candidatos_ordenados[0].get("thumbnail")
+            )
+
+            if imagen and imagen.startswith("http"):
+                return imagen
+
+    # -----------------------------------------------------
+    # VÍA 2: ficha de producto con og:image
+    # -----------------------------------------------------
+
+    for consulta in consultas[:2]:
+        imagen = buscar_og_image_en_web(consulta)
+
+        if imagen:
+            return imagen
 
     return None
 
@@ -396,53 +649,64 @@ def buscar_imagen_url(codigo_barra, codigo_articulo, descripcion):
 @st.cache_data(ttl=CACHE_IMAGEN_SEGUNDOS, show_spinner=False)
 def descargar_imagen(imagen_url):
     """
-    Descarga la imagen desde el servidor y la entrega como bytes.
-    Esto evita depender de que el navegador del cliente pueda hacer hotlink
-    directamente al servidor de imágenes.
+    Descarga la imagen y la entrega como bytes para que Streamlit la muestre
+    directamente. Intentamos también una segunda vez sin Referer.
     """
+
     if not imagen_url:
         return None
 
-    try:
-        response = requests.get(
-            imagen_url,
-            headers={
-                "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 Chrome/154.0 Safari/537.36"
-                )
-            },
-            timeout=10,
-        )
+    encabezados = [
+        HEADERS_NAVEGADOR,
+        {
+            "User-Agent": HEADERS_NAVEGADOR["User-Agent"],
+            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        },
+    ]
 
-        if response.status_code != 200:
-            return None
+    for headers in encabezados:
+        try:
+            response = requests.get(
+                imagen_url,
+                headers=headers,
+                timeout=12,
+                allow_redirects=True,
+            )
 
-        contenido = response.content
+            if response.status_code != 200:
+                continue
 
-        # Seguridad básica: no aceptamos HTML como si fuera una imagen.
-        content_type = response.headers.get("content-type", "").lower()
+            contenido = response.content
 
-        if (
-            "image/" not in content_type
-            and not contenido.startswith(b"\xFF\xD8\xFF")   # JPEG
-            and not contenido.startswith(b"\x89PNG")        # PNG
-            and not contenido.startswith(b"RIFF")           # WEBP posible
-        ):
-            return None
+            content_type = (
+                response.headers.get("content-type", "")
+                .lower()
+            )
 
-        return contenido
+            firma_imagen = (
+                contenido.startswith(b"\xFF\xD8\xFF")   # JPEG
+                or contenido.startswith(b"\x89PNG")     # PNG
+                or contenido.startswith(b"RIFF")        # WEBP
+                or contenido.startswith(b"GIF8")        # GIF
+                or contenido.startswith(b"<svg")       # SVG
+            )
 
-    except requests.RequestException:
-        return None
+            if "image/" in content_type or firma_imagen:
+                return contenido
+
+        except requests.RequestException:
+            continue
+
+    return None
 
 
 def obtener_visual_producto(row):
     """
     Devuelve:
-    - imagen real encontrada automáticamente, o
-    - una imagen individual de respaldo.
+    - imagen real encontrada en la web, o
+    - imagen PNG de respaldo.
     """
+
     codigo_barra = row.get("COD_BARRA", "")
     codigo_articulo = row.get("COD_ARTICU", "")
     descripcion = row.get("DESCRIPCIO", "")
@@ -459,7 +723,11 @@ def obtener_visual_producto(row):
         if imagen_bytes:
             return imagen_bytes, True
 
-    return crear_imagen_respaldo(descripcion, codigo_articulo), False
+    return crear_imagen_respaldo(
+        descripcion,
+        codigo_articulo,
+    ), False
+
 
 
 # =========================================================
