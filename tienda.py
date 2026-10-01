@@ -36,16 +36,6 @@ st.markdown("""
         font-size: 1.1rem;
     }
     
-    /* Estilo de la tarjeta de producto */
-    .product-card {
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        padding: 15px;
-        margin-bottom: 15px;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-    
     /* Badge del código de artículo */
     .code-badge {
         background-color: #eef2f7;
@@ -78,7 +68,7 @@ def cargar_datos():
     df_limpio['DESCRIPCIO'] = df_limpio['DESCRIPCIO'].astype(str).str.strip()
     df_limpio['PRECIO'] = df_limpio[col_precio].astype(float).round(2)
     
-    # Asignación de imagen de marcador por defecto (Librería / Oficina)
+    # Imagen genérica de librería por defecto
     df_limpio['IMAGEN_URL'] = "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=400&q=80"
     
     return df_limpio
@@ -107,7 +97,6 @@ st.markdown("""
 # 4. Barra Lateral de Navegación & Filtros
 # ---------------------------------------------------------
 with st.sidebar:
-    st.image("https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=400&q=80", use_column_width=True)
     st.header("⚙️ Panel de Filtros")
     
     modo_vista = st.radio("Cantidad de productos en pantalla:", ["Mostrar 20 Destacados", "Ver Catálogo Completo"])
@@ -129,7 +118,7 @@ with col_tienda:
         key="main_search"
     ).upper().strip()
 
-    # Filtrado en tiempo real sobre los +20.000 artículos
+    # Filtrado en tiempo real sobre los artículos
     if busqueda:
         resultados = df[
             df['COD_ARTICU'].str.upper().str.contains(busqueda) | 
@@ -144,14 +133,13 @@ with col_tienda:
     st.caption(f"Mostrando **{len(resultados)}** artículos encontrados de **{len(df):,}** disponibles.")
     st.divider()
 
-    # Grid de tarjetas de productos profesionales
+    # Tarjetas de productos profesionales
     for idx, row in resultados.iterrows():
         with st.container(border=True):
             img_col, text_col, action_col = st.columns([1.2, 2.5, 1.3])
             
             with img_col:
-                # Imagen de muestra formal del producto
-                st.image(row['IMAGEN_URL'], use_column_width=True)
+                st.image(row['IMAGEN_URL'], use_container_width=True)
                 
             with text_col:
                 st.markdown(f"### {row['DESCRIPCIO']}")
@@ -205,6 +193,6 @@ with col_carrito:
             link_mp = "https://link.mercadopago.com.ar/TULINKAQUI" 
             st.link_button("Pagar con Mercado Pago 💳", link_mp, type="primary", use_container_width=True)
         else:
-            telefono_ws = "549343XXXXXXX" # Reemplazar con tu número de WhatsApp
+            telefono_ws = "549343XXXXXXX"
             url_whatsapp = f"https://wa.me/{telefono_ws}?text={urllib.parse.quote(resumen_texto)}"
-            st.link_button("Enviar Orden por WhatsApp 📲", url_whatsapp, type="primary", use_container_width=True)
+            st.link_button("Enviar Orden por WhatsApp 📲", url_whatsapp, type="primary", use_container_width=True)dth=True)
