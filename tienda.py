@@ -47,19 +47,28 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. Función de Búsqueda Dinámica de Imagen por Producto
+# 2. Función de Imágenes Estables por Categoría (Sin fallos)
 # ---------------------------------------------------------
-def obtener_url_imagen_dinamica(descripcion):
-    """
-    Genera o busca una URL de imagen dinámica representativa según la descripción del artículo.
-    """
-    palabras = str(descripcion).strip().split()
-    # Tomamos las primeras 2 o 3 palabras clave limpias
-    busqueda_clave = " ".join(palabras[:3]) if palabras else "stationery"
-    query_encoded = urllib.parse.quote(f"stationery {busqueda_clave}")
+def obtener_imagen_estable(descripcion):
+    desc = str(descripcion).upper()
     
-    # URL dinámica de búsqueda de imagen libre en alta resolución
-    return f"https://source.unsplash.com/featured/400x300/?{query_encoded}"
+    # Mapeo a URLs directas de imágenes estables y confiables
+    if any(k in desc for k in ['RESMA', 'PAPEL', 'CARTULINA', 'AFICHE', 'FOLIO', 'SOBRE']):
+        return "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?auto=format&fit=crop&w=400&q=80"
+    elif any(k in desc for k in ['TEMPERA', 'PINTURA', 'ACRILICO', 'PINCEL', 'ACUARELA', 'OLEO']):
+        return "https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=400&q=80"
+    elif any(k in desc for k in ['LAPIZ', 'MARCADOR', 'FIBRA', 'LAPICERA', 'BOLIGRAFO', 'MICROFIBRA', 'PORTAMINAS']):
+        return "https://images.unsplash.com/photo-1585336261026-8f5786392b6e?auto=format&fit=crop&w=400&q=80"
+    elif any(k in desc for k in ['CUADERNO', 'REPUESTO', 'HOJA', 'LIBRETA', 'BLOCK', 'ANOTADOR', 'AGENDA']):
+        return "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=400&q=80"
+    elif any(k in desc for k in ['MOCHILA', 'CARTUCHERA', 'CARPETA', 'MALETIN', 'VALIJA']):
+        return "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=400&q=80"
+    elif any(k in desc for k in ['ABACO', 'JUEGO', 'DIDACTICO', 'JUGUETE', 'PUZZLE', 'GEOMETRIA']):
+        return "https://images.unsplash.com/photo-1596464716127-f2a82984de30?auto=format&fit=crop&w=400&q=80"
+    elif any(k in desc for k in ['ABROCHADORA', 'CORRECTOR', 'TIJERA', 'REGLA', 'CINTA', 'BROCHE', 'PERFORADORA', 'CLIP', 'CUTER']):
+        return "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?auto=format&fit=crop&w=400&q=80"
+    else:
+        return "https://images.unsplash.com/photo-1456735190827-d1262f71b8a3?auto=format&fit=crop&w=400&q=80"
 
 # ---------------------------------------------------------
 # 3. Carga y Preparación del Catálogo
@@ -78,6 +87,9 @@ def cargar_datos():
     df_limpio['COD_ARTICU'] = df_limpio['COD_ARTICU'].astype(str).str.strip()
     df_limpio['DESCRIPCIO'] = df_limpio['DESCRIPCIO'].astype(str).str.strip()
     df_limpio['PRECIO'] = df_limpio[col_precio].astype(float).round(2)
+    
+    # Asignación automática de imagen
+    df_limpio['IMAGEN_URL'] = df_limpio['DESCRIPCIO'].apply(obtener_imagen_estable)
     
     return df_limpio
 
@@ -143,8 +155,7 @@ with col_tienda:
             img_col, text_col, action_col = st.columns([1.2, 2.5, 1.3])
             
             with img_col:
-                url_img = obtener_url_imagen_dinamica(row['DESCRIPCIO'])
-                st.image(url_img, use_container_width=True)
+                st.image(row['IMAGEN_URL'], use_container_width=True)
                 
             with text_col:
                 st.markdown(f"### {row['DESCRIPCIO']}")
