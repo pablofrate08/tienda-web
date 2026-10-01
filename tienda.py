@@ -13,10 +13,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilos CSS personalizados para apariencia formal tipo e-commerce
+# Estilos CSS personalizados
 st.markdown("""
     <style>
-    /* Estilo del Encabezado Principal */
     .header-box {
         background: linear-gradient(135deg, #0d3b66 0%, #001f3f 100%);
         color: white;
@@ -35,8 +34,6 @@ st.markdown("""
         color: #e0e6ed;
         font-size: 1.1rem;
     }
-    
-    /* Badge del código de artículo */
     .code-badge {
         background-color: #eef2f7;
         color: #4a5568;
@@ -60,7 +57,6 @@ def cargar_datos():
     
     df = pd.read_excel(archivo)
     
-    # Normalización de columnas de derivadosll.xlsx
     col_precio = 'PRECIOFINAL' if 'PRECIOFINAL' in df.columns else 'FINAL'
     
     df_limpio = df[['COD_ARTICU', 'DESCRIPCIO', col_precio]].dropna().copy()
@@ -68,7 +64,6 @@ def cargar_datos():
     df_limpio['DESCRIPCIO'] = df_limpio['DESCRIPCIO'].astype(str).str.strip()
     df_limpio['PRECIO'] = df_limpio[col_precio].astype(float).round(2)
     
-    # Imagen genérica de librería por defecto
     df_limpio['IMAGEN_URL'] = "https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=400&q=80"
     
     return df_limpio
@@ -98,9 +93,7 @@ st.markdown("""
 # ---------------------------------------------------------
 with st.sidebar:
     st.header("⚙️ Panel de Filtros")
-    
     modo_vista = st.radio("Cantidad de productos en pantalla:", ["Mostrar 20 Destacados", "Ver Catálogo Completo"])
-    
     st.divider()
     st.markdown("### 📞 Atención al Cliente")
     st.info("Atención de Lunes a Viernes de 8:00 a 17:00 hs.\n\nEnvíos a todo el país.")
@@ -118,7 +111,6 @@ with col_tienda:
         key="main_search"
     ).upper().strip()
 
-    # Filtrado en tiempo real sobre los artículos
     if busqueda:
         resultados = df[
             df['COD_ARTICU'].str.upper().str.contains(busqueda) | 
@@ -133,7 +125,6 @@ with col_tienda:
     st.caption(f"Mostrando **{len(resultados)}** artículos encontrados de **{len(df):,}** disponibles.")
     st.divider()
 
-    # Tarjetas de productos profesionales
     for idx, row in resultados.iterrows():
         with st.container(border=True):
             img_col, text_col, action_col = st.columns([1.2, 2.5, 1.3])
@@ -195,4 +186,4 @@ with col_carrito:
         else:
             telefono_ws = "549343XXXXXXX"
             url_whatsapp = f"https://wa.me/{telefono_ws}?text={urllib.parse.quote(resumen_texto)}"
-            st.link_button("Enviar Orden por WhatsApp 📲", url_whatsapp, type="primary", use_container_width=True)dth=True)
+            st.link_button("Enviar Orden por WhatsApp 📲", url_whatsapp, type="primary", use_container_width=True)
