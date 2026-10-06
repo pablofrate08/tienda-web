@@ -6,6 +6,7 @@ import urllib.parse
 import os
 import math
 from PIL import Image, ImageDraw
+from supabase import create_client  # <-- NUEVA LIBRERÍA DE SUPABASE
 
 # ---------------------------------------------------------
 # 1. Configuración de la página
@@ -89,7 +90,11 @@ def generar_imagen_pil(descripcion, codigo):
 # 3. Búsqueda de Imagen con Manejo de Excepciones Cloud
 # ---------------------------------------------------------
 if 'imagenes_cache' not in st.session_state:
-    st.session_state.imagenes_cache = {}
+    try:
+        with open('imagenes_cache.json', 'r', encoding='utf-8') as f:
+            st.session_state.imagenes_cache = json.load(f)
+    except Exception:
+        st.session_state.imagenes_cache = {}
 
 def buscar_imagen_real_producto(row):
     cod_art = str(row.get('COD_ARTICU', '')).strip()
@@ -101,76 +106,58 @@ def buscar_imagen_real_producto(row):
     if cache_key in st.session_state.imagenes_cache:
         return st.session_state.imagenes_cache[cache_key]
 
-    # Si hay columna URL_IMAGEN con link directo en el Excel
     if 'URL_IMAGEN' in row and pd.notna(row['URL_IMAGEN']) and str(row['URL_IMAGEN']).startswith('http'):
         url_directa = str(row['URL_IMAGEN']).strip()
         st.session_state.imagenes_cache[cache_key] = url_directa
         return url_directa
 
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-    
-    consultas = []
-    if cod_barra and len(cod_barra) >= 8 and cod_barra.isdigit():
-        consultas.append(cod_barra)
-    if desc and desc != "Producto sin descripción":
-        consultas.append(desc)
-        
-    for q in consultas:
-        try:
-            url_api = f"https://api.mercadolibre.com/sites/MLA/search?q={urllib.parse.quote(q)}&limit=1"
-            resp = requests.get(url_api, headers=headers, timeout=1.2)
-            if resp.status_code == 200:
-                data = resp.json()
-                results = data.get('results', [])
-                if results:
-                    thumb = results[0].get('thumbnail', '')
-                    if thumb:
-                        high_res = thumb.replace("-I.jpg", "-O.jpg").replace("http://", "https://")
-                        st.session_state.imagenes_cache[cache_key] = high_res
-                        return high_res
-        except Exception:
-            pass
-            
-    st.session_state.imagenes_cache[cache_key] = None
     return None
 
 # ---------------------------------------------------------
-# 4. Carga Flexible y Tolerante del Excel
+# 4. Conexión a Base de Datos Supabase
 # ---------------------------------------------------------
-@st.cache_data
+# ⚠️ PEGA AQUÍ TUS CREDENCIALES DE SUPABASE:
+SUPABASE_URL = "https://danwufkuouffvwsrxuhf.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhbnd1Zmt1b3VmZnZ3c3J4dWhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwNjk0NTksImV4cCI6MjEwNjY0NTQ1OX0.-Mx4wxmVbmo5CjNDAA6jubGPDzrWlMtWfCt9QbeqDqU"
+
+@st.cache_resource
+def iniciar_conexion():
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+try:
+    supabase = iniciar_conexion()
+except Exception:
+    st.error("Error al inicializar Supabase. ¿Instalaste la librería con 'pip install supabase'?")
+    st.stop()
+
+@st.cache_data(ttl=600) # Guarda los datos en memoria por 10 minutos para que sea rápido
 def cargar_datos():
-    archivo = 'derivadosll.xlsx'
-    if not os.path.exists(archivo):
-        archivo = 'actualizacionesll.xlsx'
+    # Descargar los datos de la tabla 'productos' en la nube
+    respuesta = supabase.table("productos").select("*").execute()
+    
+    # Convertir a Pandas DataFrame
+    df_limpio = pd.DataFrame(respuesta.data)
+    
+    # Convertir columnas a MAYÚSCULAS para que el resto del código funcione
+    df_limpio.columns = [str(c).strip().upper() for c in df_limpio.columns]
+    
+    # Asegurar que las columnas clave existan y tengan el formato correcto
+    if 'PRECIOFINAL' in df_limpio.columns:
+        df_limpio['PRECIO'] = pd.to_numeric(df_limpio['PRECIOFINAL'], errors='coerce')
+    else:
+        df_limpio['PRECIO'] = None
         
-    if not os.path.exists(archivo):
-        st.error("⚠️ No se encontró el archivo Excel (`derivadosll.xlsx`) en el repositorio de GitHub.")
-        st.stop()
-        
-    df = pd.read_excel(archivo)
-    df.columns = [str(c).strip().upper() for c in df.columns]
-    
-    col_codigo = next((c for c in ['COD_ARTICU', 'CODIGO', 'COD', 'ARTICULO'] if c in df.columns), None)
-    col_desc = next((c for c in ['DESCRIPCIO', 'DESCRIPCION', 'NOMBRE', 'DETALLE'] if c in df.columns), None)
-    col_precio = next((c for c in ['PRECIOFINAL', 'FINAL', 'PRECIO_FINAL', 'PRECIO'] if c in df.columns), None)
-    col_barra = next((c for c in ['COD_BARRA', 'BARRA', 'EAN', 'CODIGO_BARRA'] if c in df.columns), None)
-    
-    df_limpio = pd.DataFrame()
-    
-    df_limpio['COD_ARTICU'] = df[col_codigo].astype(str).str.strip() if col_codigo else df.index.astype(str)
-    df_limpio['DESCRIPCIO'] = df[col_desc].astype(str).str.strip() if col_desc else "Producto sin descripción"
-    df_limpio['PRECIO'] = pd.to_numeric(df[col_precio], errors='coerce') if col_precio else None
-    df_limpio['COD_BARRA'] = df[col_barra].astype(str).str.strip().replace('nan', '') if col_barra else ""
-    
-    if 'URL_IMAGEN' in df.columns:
-        df_limpio['URL_IMAGEN'] = df['URL_IMAGEN']
+    if 'COD_BARRA' not in df_limpio.columns:
+        df_limpio['COD_BARRA'] = ""
+    else:
+        df_limpio['COD_BARRA'] = df_limpio['COD_BARRA'].fillna("").astype(str)
         
     return df_limpio
 
 try:
     df = cargar_datos()
 except Exception as e:
-    st.error(f"⚠️ Error al procesar el Excel: {e}")
+    st.error(f"⚠️ Error al conectar o leer datos de Supabase: {e}")
     st.stop()
 
 if 'carrito' not in st.session_state:
@@ -212,9 +199,9 @@ with col_tienda:
 
     if busqueda:
         resultados = df[
-            df['COD_ARTICU'].str.upper().str.contains(busqueda) | 
-            df['DESCRIPCIO'].str.upper().str.contains(busqueda) |
-            df['COD_BARRA'].str.upper().str.contains(busqueda)
+            df['COD_ARTICU'].str.upper().str.contains(busqueda, na=False) | 
+            df['DESCRIPCIO'].str.upper().str.contains(busqueda, na=False) |
+            df['COD_BARRA'].str.upper().str.contains(busqueda, na=False)
         ]
     else:
         resultados = df
