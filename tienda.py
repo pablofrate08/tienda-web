@@ -295,6 +295,6 @@ with col_carrito:
             link_mp = "https://link.mercadopago.com.ar/TULINKAQUI" 
             st.link_button("Pagar con Mercado Pago 💳", link_mp, type="primary", use_container_width=True)
         else:
-            telefono_ws = "549343XXXXXXX"
+            telefono_ws = "5493434536071"
             url_whatsapp = f"https://wa.me/{telefono_ws}?text={urllib.parse.quote(resumen_texto)}"
             st.link_button("Enviar Orden por WhatsApp 📲", url_whatsapp, type="primary", use_container_width=True)
